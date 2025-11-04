@@ -8,7 +8,7 @@ import altair as alt
 import os
 from sklearn.base import BaseEstimator, TransformerMixin
 
-st.set_page_config(layout="wide", page_title="Predicción de demanda por región")
+st.set_page_config(layout="wide", page_title="Predicción de demanda eléctrica", page_icon="⚡")
 
 # ---------------------------
 # CONFIGURACIÓN DE REGIONES
@@ -88,7 +88,6 @@ def fetch_open_meteo_forecast(lat, lon, timezone="America/Argentina/Buenos_Aires
     return df
 
 def align_forecast(df_forecast, region_name):
-    """Prepara el dataframe para predicción sin recalcular columnas temporales cíclicas."""
     df = df_forecast.copy()
     df['region'] = region_name
     df['estacion'] = df['fecha'].dt.month.map({
@@ -97,7 +96,6 @@ def align_forecast(df_forecast, region_name):
         6:"invierno",7:"invierno",8:"invierno",
         9:"primavera",10:"primavera",11:"primavera"
     })
-    # columnas esenciales para el pipeline
     expected_cols = [
         "fecha","cloudcover","pressure_msl","precipitation","temperature_2m",
         "wind_speed_10m","wind_direction_10m","relative_humidity_2m",
@@ -109,30 +107,41 @@ def align_forecast(df_forecast, region_name):
     return df[expected_cols]
 
 # ---------------------------
-# INTERFAZ STREAMLIT
+# SIDEBAR
 # ---------------------------
-st.title("Predicción de Demanda Eléctrica (7 días)")
-st.markdown("Selecciona la región para obtener el pronóstico del clima y la predicción de demanda correspondiente.")
-
-region = st.selectbox("Región:", list(REGION_COORDS.keys()))
+st.sidebar.title("Configuración")
+region = st.sidebar.selectbox("Selecciona la región:", list(REGION_COORDS.keys()))
+forecast_days = st.sidebar.slider("Días a predecir:", 1, 14, 7)
 model = load_model(region)
 if model is None:
     st.stop()
 
+# ---------------------------
+# OBTENER DATOS
+# ---------------------------
 coords = REGION_COORDS[region]
 with st.spinner("Obteniendo pronóstico meteorológico..."):
-    df_forecast = fetch_open_meteo_forecast(coords["lat"], coords["lon"])
+    df_forecast = fetch_open_meteo_forecast(coords["lat"], coords["lon"], forecast_days=forecast_days)
 
 df_forecast_aligned = align_forecast(df_forecast, region)
 
-# Predecir
-df_forecast["pred_dem"] = model.predict(df_forecast_aligned)
+with st.spinner("Generando predicciones..."):
+    df_forecast["pred_dem"] = model.predict(df_forecast_aligned)
+
+# ---------------------------
+# TARJETAS DE ESTADÍSTICAS
+# ---------------------------
+st.subheader(f"Resumen de la demanda para '{region}'")
+col1, col2, col3 = st.columns(3)
+col1.metric("Máx. demanda", f"{df_forecast['pred_dem'].max():.2f} MW")
+col2.metric("Mín. demanda", f"{df_forecast['pred_dem'].min():.2f} MW")
+col3.metric("Demanda promedio", f"{df_forecast['pred_dem'].mean():.2f} MW")
 
 # ---------------------------
 # VISUALIZACIONES
 # ---------------------------
 st.subheader("Predicción horaria de demanda")
-chart1 = alt.Chart(df_forecast).mark_line().encode(
+chart1 = alt.Chart(df_forecast).mark_line(color="blue").encode(
     x="fecha:T",
     y="pred_dem:Q",
     tooltip=["fecha","pred_dem"]
@@ -158,11 +167,21 @@ try:
     estimator = model.named_steps.get("model", model)
     if hasattr(estimator,"feature_importances_"):
         importances = estimator.feature_importances_
-        feature_names = df_forecast_aligned.drop(columns=["fecha"]).columns[:len(importances)]
-        fi = pd.DataFrame({"feature": feature_names,"importance":importances}).sort_values("importance",ascending=False)
-        st.dataframe(fi.head(10))
+        feature_names = None
+        if hasattr(model, "named_steps") and "preprocessing" in model.named_steps:
+            preprocessor = model.named_steps["preprocessing"]
+            if hasattr(preprocessor, "get_feature_names_out"):
+                feature_names = preprocessor.get_feature_names_out()
+                feature_names = [name.split("__")[-1] for name in feature_names]
+        if feature_names is None:
+            feature_names = df_forecast_aligned.drop(columns=["fecha"]).columns[:len(importances)]
+        fi = pd.DataFrame({"feature": feature_names[:len(importances)], "importance": importances})\
+                .sort_values("importance", ascending=False)
+        with st.expander("Ver tabla de importancia"):
+            st.dataframe(fi.head(10))
         chart3 = alt.Chart(fi.head(10)).mark_bar().encode(
-            x="importance:Q", y=alt.Y("feature:N", sort="-x"), color="importance:Q", tooltip=["feature","importance"]
+            x="importance:Q", y=alt.Y("feature:N", sort="-x"),
+            color="importance:Q", tooltip=["feature","importance"]
         ).properties(height=350)
         st.altair_chart(chart3,use_container_width=True)
     else:
@@ -174,5 +193,6 @@ except Exception as e:
 # DESCARGA
 # ---------------------------
 csv = df_forecast.to_csv(index=False)
-st.download_button("Descargar predicciones (CSV)", csv, file_name=f"predicciones_{region}.csv", mime="text/csv")
-st.success("Predicción completada correctamente.")
+st.download_button(" Descargar predicciones (CSV)", csv,
+                   file_name=f"predicciones_{region}.csv", mime="text/csv")
+st.success(" Predicción completada correctamente.")
