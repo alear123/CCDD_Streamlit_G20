@@ -233,6 +233,11 @@ df_forecast_aligned = align_forecast_with_preprocessor(df_forecast, model, regio
 
 st.write("Columnas que entran al modelo:", list(df_forecast_aligned.columns))
 
+# 🛠️ Eliminar columna 'fecha' si el transformador no la quita correctamente
+if "fecha" in df_forecast_aligned.columns:
+    st.warning("⚠️ Se detectó que 'fecha' sigue presente en el dataset; se eliminará antes de predecir.")
+    df_forecast_aligned = df_forecast_aligned.drop(columns=["fecha"])
+    
 # Ahora predecir con el pipeline
 df_forecast["pred_dem"] = model.predict(df_forecast_aligned)
 
