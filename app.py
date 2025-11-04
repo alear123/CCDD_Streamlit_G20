@@ -155,33 +155,94 @@ st.info(f"Coordenadas de {region}: {coords['lat']}, {coords['lon']}")
 with st.spinner("Obteniendo pronóstico meteorológico..."):
     df_forecast = fetch_open_meteo_forecast(coords["lat"], coords["lon"])
 
-if df_forecast.empty:
-    st.error("No se pudo obtener el pronóstico.")
-    st.stop()
+# ---------------------------
+# Alinear df_forecast con las columnas raw que espera el preprocessor
+# ---------------------------
+def align_forecast_with_preprocessor(df_forecast, model, region_name=None):
+    """
+    Alinea df_forecast con las columnas que el preprocessor esperaba en entrenamiento.
+    - Añade columnas faltantes con valores por defecto.
+    - Reordena las columnas al mismo orden.
+    - Forza tipos básicos (numerics -> float, categoricals -> object).
+    """
+    df = df_forecast.copy()
+    # asegurar columna fecha como datetime
+    if 'fecha' in df.columns:
+        df['fecha'] = pd.to_datetime(df['fecha'], errors='coerce')
 
-columnas_necesarias = [
-    "fecha", "temperature_2m", "relative_humidity_2m", "precipitation",
-    "cloudcover", "pressure_msl", "wind_speed_10m", "wind_direction_10m",
-    "region", "fin_de_semana", "estacion"
-]
+    preprocessor = None
+    if hasattr(model, "named_steps") and "preprocessing" in model.named_steps:
+        preprocessor = model.named_steps["preprocessing"]
 
-for col in columnas_necesarias:
-    if col not in df_forecast.columns:
-        if col == "region":
-            df_forecast[col] = region  # usa la región seleccionada en la app
-        elif col == "estacion":
-            # podés estimar estación según mes
-            df_forecast["mes"] = df_forecast["fecha"].dt.month
-            df_forecast["estacion"] = df_forecast["mes"].map({
-                12: "verano", 1: "verano", 2: "verano",
-                3: "otoño", 4: "otoño", 5: "otoño",
-                6: "invierno", 7: "invierno", 8: "invierno",
-                9: "primavera", 10: "primavera", 11: "primavera"
-            })
-        else:
-            df_forecast[col] = 0
-# Preparar features y predecir
-df_forecast["pred_dem"] = model.predict(df_forecast)
+    if preprocessor is None:
+        # nada que alinear si no hay preprocessor
+        return df
+
+    # 1) columnas raw que esperaba el preprocessor en el fit (si existe)
+    expected_raw = getattr(preprocessor, "feature_names_in_", None)
+    if expected_raw is None:
+        # fallback: intentar obtener de ColumnTransformer si existe attribute input_features
+        try:
+            expected_raw = preprocessor.steps[0][1].feature_names_in_
+        except Exception:
+            expected_raw = None
+
+    if expected_raw is None:
+        # no hay información; devolvemos df tal cual
+        return df
+
+    # 2) añadir columnas faltantes con valores por defecto razonables
+    for col in expected_raw:
+        if col not in df.columns:
+            if col == "region":
+                df[col] = region_name if region_name is not None else "unknown"
+            elif col in ["estacion", "dia_semana", "mes", "hora", "fin_de_semana"]:
+                # si depende de fecha, intentar derivar
+                if 'fecha' in df.columns:
+                    if col == "estacion":
+                        df['mes'] = df['fecha'].dt.month
+                        df[col] = df['mes'].map({
+                            12: "verano",1:"verano",2:"verano",
+                            3:"otoño",4:"otoño",5:"otoño",
+                            6:"invierno",7:"invierno",8:"invierno",
+                            9:"primavera",10:"primavera",11:"primavera"
+                        })
+                    elif col == "dia_semana":
+                        df[col] = df['fecha'].dt.weekday
+                    elif col == "hora":
+                        df[col] = df['fecha'].dt.hour
+                    elif col == "mes":
+                        df[col] = df['fecha'].dt.month
+                    elif col == "fin_de_semana":
+                        df[col] = df['fecha'].dt.weekday.isin([5,6]).astype(int)
+                else:
+                    # fallback
+                    df[col] = 0
+            else:
+                # si parece numérica -> 0.0, sino -> 'missing'
+                df[col] = 0.0
+
+    # 3) forzar orden de columnas igual al esperado
+    # Algunas versiones de scikit pueden dar np.ndarray; convertir a list
+    expected_raw = list(expected_raw)
+    # Solo mantener columnas que existan en df
+    ordered = [c for c in expected_raw if c in df.columns]
+    # añadir el resto que pueda haber (no romper)
+    rest = [c for c in df.columns if c not in ordered]
+    df = df[ordered + rest]
+
+    # 4) tipos: forzar numerics a float
+    for c in df.select_dtypes(include=["int64","int32"]).columns:
+        df[c] = df[c].astype(float)
+
+    return df
+
+# Usar la función antes de predecir
+df_forecast_aligned = align_forecast_with_preprocessor(df_forecast, model, region_name=region)
+
+# Ahora predecir con el pipeline
+df_forecast["pred_dem"] = model.predict(df_forecast_aligned)
+
 
 # ---------------------------
 # VISUALIZACIONES
