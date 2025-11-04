@@ -203,13 +203,15 @@ def align_forecast_with_preprocessor(df_forecast, model, region_name=None):
         if col not in df.columns:
             df[col] = 0.0
 
-    # --- reordenar columnas como en el entrenamiento ---
+        # --- reordenar columnas como en el entrenamiento ---
     columnas_orden = [
+        "fecha",  # ✅ incluir fecha, necesaria para FeatureEngineerTemporal
         "cloudcover", "pressure_msl", "precipitation", "temperature_2m",
         "wind_speed_10m", "wind_direction_10m", "relative_humidity_2m",
         "region", "fin_de_semana", "estacion", "hora", "dia_semana", "mes",
         "hora_sin", "hora_cos", "mes_sin", "mes_cos"
     ]
+
 
     # asegurar que todas existan
     for c in columnas_orden:
