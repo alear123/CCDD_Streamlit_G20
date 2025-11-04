@@ -109,6 +109,34 @@ def align_forecast(df_forecast, region_name):
 # ---------------------------
 # SIDEBAR
 # ---------------------------
+# ---------------------------
+# TEXTO DE INTRODUCCIÓN
+# ---------------------------
+st.markdown(
+    """
+    # ⚡ Predicción de Demanda Eléctrica por Región
+
+    Bienvenido a la herramienta de predicción de demanda eléctrica.  
+    Esta aplicación permite:
+    
+    - Obtener el pronóstico horario de demanda eléctrica para las principales regiones.
+    - Visualizar la relación entre temperatura y demanda.
+    - Consultar la importancia de las variables que influyen en la predicción.
+    - Descargar los resultados para análisis posterior.
+
+    **Cómo usarla:**
+    1. Selecciona la región y los días a predecir en la barra lateral.
+    2. Visualiza los gráficos y la tabla de predicciones.
+    3. Descarga los resultados si lo deseas.
+
+    💡 Esta herramienta utiliza modelos de aprendizaje automático entrenados con datos históricos y pronósticos meteorológicos.
+    """
+)
+
+# ---------------------------
+# SIDEBAR
+# ---------------------------
+
 st.sidebar.title("Configuración")
 region = st.sidebar.selectbox("Selecciona la región:", list(REGION_COORDS.keys()))
 forecast_days = st.sidebar.slider("Días a predecir:", 1, 14, 7)
