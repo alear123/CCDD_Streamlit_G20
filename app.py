@@ -6,6 +6,7 @@ import requests
 import joblib
 import altair as alt
 import os
+from sklearn.base import BaseEstimator, TransformerMixin
 
 st.set_page_config(layout="wide", page_title="Predicción de demanda por región")
 
@@ -19,6 +20,48 @@ REGION_COORDS = {
 }
 
 MODEL_FOLDER = "models"
+
+
+
+
+class FeatureEngineerTemporal(BaseEstimator, TransformerMixin):
+    """
+    Transformer de Scikit-learn que divide la columna fecha en hora, dia_semana, mes,.
+
+    """
+
+    def __init__(self, drop_original_fecha=True):
+        self.drop_original_fecha = drop_original_fecha
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        df = X.copy()
+
+        # Asegurar columna fecha
+        if 'fecha' not in df.columns:
+            raise ValueError("No se encontró la columna 'fecha' en el DataFrame.")
+
+        # Asegurar datetime
+        df['fecha'] = pd.to_datetime(df['fecha'], errors='coerce')
+
+        # Features de calendario
+        df['hora'] = df['fecha'].dt.hour
+        df['dia_semana'] = df['fecha'].dt.weekday
+        df['mes'] = df['fecha'].dt.month
+
+        # Codificación cíclica
+        df['hora_sin'] = np.sin(2 * np.pi * df['hora'] / 24)
+        df['hora_cos'] = np.cos(2 * np.pi * df['hora'] / 24)
+        df['mes_sin'] = np.sin(2 * np.pi * df['mes'] / 12)
+        df['mes_cos'] = np.cos(2 * np.pi * df['mes'] / 12)
+
+        # Dropear fecha original si corresponde
+        if self.drop_original_fecha:
+            df = df.drop(columns=['fecha'], errors='ignore')
+
+        return df
 
 # ---------------------------
 # FUNCIÓN: CARGAR MODELO
