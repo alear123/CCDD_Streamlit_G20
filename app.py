@@ -205,58 +205,69 @@ chart2 = alt.layer(
 ).resolve_scale(y="independent").interactive()
 st.altair_chart(chart2, use_container_width=True)
 
-st.subheader(" Importancia de características")
+# ---------------------------
+# IMPORTANCIA DE CARACTERÍSTICAS
+# ---------------------------
+st.subheader("Importancia de características")
+
 try:
     estimator = model.named_steps.get("model", model)
 
     if hasattr(estimator, "feature_importances_"):
         importances = estimator.feature_importances_
 
-        # --- Intentar obtener nombres reales ---
         feature_names = None
+
+        # Intentar obtener los nombres reales del preprocesador
         if hasattr(model, "named_steps") and "preprocessing" in model.named_steps:
             preprocessor = model.named_steps["preprocessing"]
             if hasattr(preprocessor, "get_feature_names_out"):
                 try:
                     feature_names = preprocessor.get_feature_names_out()
-                    # limpiar prefijos tipo "column__"
-                    feature_names = [name.split("__")[-1] for name in feature_names]
-
-                    # eliminar columnas no numéricas o no usadas directamente
-                    cols_excluir = ["fecha", "region", "estacion"]
-                    feature_names = [f for f in feature_names if f not in cols_excluir]
+                    # Limpiar prefijos tipo "column__" o "num__"
+                    feature_names = [
+                        name.split("__")[-1].replace("num_", "").replace("cat_", "")
+                        for name in feature_names
+                    ]
                 except Exception:
                     feature_names = None
 
-        # Si no pudo obtener nombres, usar columnas originales o crear genéricos
+        # Si no se pudieron obtener, usar nombres del dataframe
         if feature_names is None:
             feature_names = list(df_forecast.columns)
-        # Asegurar que longitudes coincidan
+
+        # Filtrar columnas irrelevantes
+        cols_excluir = ["fecha", "region", "estacion", "dia_semana", "mes", "hora"]
+        feature_names = [f for f in feature_names if f not in cols_excluir]
+
+        # Asegurar longitudes coherentes
         n_feats = len(importances)
         if len(feature_names) < n_feats:
-            # Completar con nombres genéricos
             feature_names += [f"Feature_{i}" for i in range(len(feature_names), n_feats)]
         elif len(feature_names) > n_feats:
-            # Recortar
             feature_names = feature_names[:n_feats]
 
-        fi = pd.DataFrame({
-            "feature": feature_names,
-            "importance": importances
-        }).sort_values("importance", ascending=False)
+        # Crear dataframe de importancias
+        fi = (
+            pd.DataFrame({"feature": feature_names, "importance": importances})
+            .sort_values("importance", ascending=False)
+            .reset_index(drop=True)
+        )
 
+        # Mostrar tabla + gráfico
         st.dataframe(fi)
         chart3 = (
             alt.Chart(fi)
             .mark_bar()
             .encode(
                 x=alt.X("importance:Q", title="Importancia"),
-                y=alt.Y("feature:N", sort="-x", title="Feature"),
+                y=alt.Y("feature:N", sort="-x", title="Variable"),
                 tooltip=["feature", "importance"]
             )
             .properties(height=320)
         )
         st.altair_chart(chart3, use_container_width=True)
+
     else:
         st.info("El modelo no expone importancias de características.")
 except Exception as e:
