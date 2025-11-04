@@ -205,7 +205,7 @@ chart2 = alt.layer(
 ).resolve_scale(y="independent").interactive()
 st.altair_chart(chart2, use_container_width=True)
 
-st.subheader("🔍 Importancia de características (si el modelo lo permite)")
+st.subheader(" Importancia de características")
 try:
     estimator = model.named_steps.get("model", model)
 
@@ -221,6 +221,10 @@ try:
                     feature_names = preprocessor.get_feature_names_out()
                     # limpiar prefijos tipo "column__"
                     feature_names = [name.split("__")[-1] for name in feature_names]
+
+                    # eliminar columnas no numéricas o no usadas directamente
+                    cols_excluir = ["fecha", "region", "estacion"]
+                    feature_names = [f for f in feature_names if f not in cols_excluir]
                 except Exception:
                     feature_names = None
 
