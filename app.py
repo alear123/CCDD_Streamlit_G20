@@ -160,8 +160,7 @@ if df_forecast.empty:
     st.stop()
 
 # Preparar features y predecir
-df_forecast, X = prepare_features(df_forecast)
-df_forecast["pred_dem"] = model.predict(X)
+df_forecast["pred_dem"] = model.predict(df_forecast)
 
 # ---------------------------
 # VISUALIZACIONES
