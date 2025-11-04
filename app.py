@@ -18,7 +18,6 @@ REGION_COORDS = {
     "edesur": {"lat": -34.615, "lon": -58.425},  # CABA sur
     "edenor": {"lat": -34.567, "lon": -58.447}   # CABA norte
 }
-
 MODEL_FOLDER = "models"
 
 # ---------------------------
@@ -104,8 +103,9 @@ def align_forecast(df_forecast, region_name):
     df['hora_cos'] = np.cos(2*np.pi*df['hora']/24)
     df['mes_sin'] = np.sin(2*np.pi*df['mes']/12)
     df['mes_cos'] = np.cos(2*np.pi*df['mes']/12)
+    # columnas esperadas
     expected_cols = [
-        "cloudcover","pressure_msl","precipitation","temperature_2m",
+        "fecha","cloudcover","pressure_msl","precipitation","temperature_2m",
         "wind_speed_10m","wind_direction_10m","relative_humidity_2m",
         "region","fin_de_semana","estacion","hora","dia_semana","mes",
         "hora_sin","hora_cos","mes_sin","mes_cos"
@@ -131,7 +131,8 @@ with st.spinner("Obteniendo pronóstico meteorológico..."):
     df_forecast = fetch_open_meteo_forecast(coords["lat"], coords["lon"])
 
 df_forecast_aligned = align_forecast(df_forecast, region)
-# Predecir
+
+# ⚠️ Mantener 'fecha' para que FeatureEngineerTemporal funcione
 df_forecast["pred_dem"] = model.predict(df_forecast_aligned)
 
 # ---------------------------
@@ -164,7 +165,7 @@ try:
     estimator = model.named_steps.get("model", model)
     if hasattr(estimator,"feature_importances_"):
         importances = estimator.feature_importances_
-        feature_names = df_forecast_aligned.columns[:len(importances)]
+        feature_names = df_forecast_aligned.drop(columns=["fecha"]).columns[:len(importances)]
         fi = pd.DataFrame({"feature": feature_names,"importance":importances}).sort_values("importance",ascending=False)
         st.dataframe(fi.head(10))
         chart3 = alt.Chart(fi.head(10)).mark_bar().encode(
