@@ -159,6 +159,27 @@ if df_forecast.empty:
     st.error("No se pudo obtener el pronóstico.")
     st.stop()
 
+columnas_necesarias = [
+    "fecha", "temperature_2m", "relative_humidity_2m", "precipitation",
+    "cloudcover", "pressure_msl", "wind_speed_10m", "wind_direction_10m",
+    "region", "fin_de_semana", "estacion"
+]
+
+for col in columnas_necesarias:
+    if col not in df_forecast.columns:
+        if col == "region":
+            df_forecast[col] = region  # usa la región seleccionada en la app
+        elif col == "estacion":
+            # podés estimar estación según mes
+            df_forecast["mes"] = df_forecast["fecha"].dt.month
+            df_forecast["estacion"] = df_forecast["mes"].map({
+                12: "verano", 1: "verano", 2: "verano",
+                3: "otoño", 4: "otoño", 5: "otoño",
+                6: "invierno", 7: "invierno", 8: "invierno",
+                9: "primavera", 10: "primavera", 11: "primavera"
+            })
+        else:
+            df_forecast[col] = 0
 # Preparar features y predecir
 df_forecast["pred_dem"] = model.predict(df_forecast)
 
