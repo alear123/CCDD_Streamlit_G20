@@ -114,7 +114,7 @@ def align_forecast(df_forecast, region_name):
 # ---------------------------
 st.markdown(
     """
-    # ⚡ Predicción de Demanda Eléctrica por Región
+    #  Predicción de Demanda Eléctrica por Región
 
     Bienvenido a la herramienta de predicción de demanda eléctrica.  
     Esta aplicación permite:
