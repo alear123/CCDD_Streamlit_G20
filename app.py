@@ -139,7 +139,7 @@ def prepare_features(df):
 # ---------------------------
 # INTERFAZ STREAMLIT
 # ---------------------------
-st.title("🔌 Predicción de Demanda Eléctrica (7 días)")
+st.title("Predicción de Demanda Eléctrica (7 días)")
 st.markdown("Selecciona la región para obtener el pronóstico del clima y la predicción de demanda correspondiente.")
 
 region = st.selectbox("Región:", list(REGION_COORDS.keys()))
@@ -149,7 +149,7 @@ if model is None:
     st.stop()
 
 coords = REGION_COORDS[region]
-st.info(f"📍 Coordenadas de {region}: {coords['lat']}, {coords['lon']}")
+st.info(f"Coordenadas de {region}: {coords['lat']}, {coords['lon']}")
 
 # Obtener pronóstico
 with st.spinner("Obteniendo pronóstico meteorológico..."):
@@ -186,7 +186,7 @@ df_forecast["pred_dem"] = model.predict(df_forecast)
 # ---------------------------
 # VISUALIZACIONES
 # ---------------------------
-st.subheader("📈 Predicción horaria de demanda")
+st.subheader("Predicción horaria de demanda")
 chart1 = alt.Chart(df_forecast).mark_line().encode(
     x=alt.X("fecha:T", title="Fecha"),
     y=alt.Y("pred_dem:Q", title="Demanda predicha"),
@@ -205,7 +205,7 @@ chart2 = alt.layer(
 ).resolve_scale(y="independent").interactive()
 st.altair_chart(chart2, use_container_width=True)
 
-st.subheader("🔍 Importancia de características (si el modelo lo permite)")
+st.subheader("Importancia de características (si el modelo lo permite)")
 try:
     estimator = model.named_steps.get("model", model)
     if hasattr(estimator, "feature_importances_"):
@@ -232,6 +232,6 @@ except Exception as e:
 # DESCARGA
 # ---------------------------
 csv = df_forecast.to_csv(index=False)
-st.download_button("📥 Descargar predicciones (CSV)", csv, file_name=f"predicciones_{region}.csv", mime="text/csv")
+st.download_button("Descargar predicciones (CSV)", csv, file_name=f"predicciones_{region}.csv", mime="text/csv")
 
 st.success("Predicción completada correctamente.")
