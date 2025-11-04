@@ -205,25 +205,42 @@ chart2 = alt.layer(
 ).resolve_scale(y="independent").interactive()
 st.altair_chart(chart2, use_container_width=True)
 
-st.subheader("Importancia de características (si el modelo lo permite)")
+st.subheader("🔍 Importancia de características (si el modelo lo permite)")
 try:
+    # Intentar obtener el estimador interno
     estimator = model.named_steps.get("model", model)
+    
     if hasattr(estimator, "feature_importances_"):
-        # Intentar obtener los nombres reales desde el preprocesador
-        try:
-            preprocessor = model.named_steps.get("preprocessing", None)
-            if preprocessor is not None and hasattr(preprocessor, "get_feature_names_out"):
-                feature_names = preprocessor.get_feature_names_out()
-            else:
-                feature_names = [f"Feature {i}" for i in range(len(estimator.feature_importances_))]
-        except Exception:
-            feature_names = [f"Feature {i}" for i in range(len(estimator.feature_importances_))]
+        importances = estimator.feature_importances_
 
+        # --- Intentar recuperar los nombres reales de las columnas ---
+        feature_names = None
+
+        # Si el pipeline tiene preprocesador con método get_feature_names_out
+        if hasattr(model, "named_steps") and "preprocessing" in model.named_steps:
+            preprocessor = model.named_steps["preprocessing"]
+            try:
+                if hasattr(preprocessor, "get_feature_names_out"):
+                    feature_names = preprocessor.get_feature_names_out()
+                    # Convertir a nombres legibles (sin "column__")
+                    feature_names = [name.split("__")[-1] for name in feature_names]
+            except Exception:
+                pass
+
+        # Si no se pudieron obtener, usar las columnas originales del DataFrame
+        if feature_names is None or len(feature_names) != len(importances):
+            feature_names = df_forecast.columns.tolist()
+            # Quitar columnas no numéricas si sobra
+            feature_names = feature_names[:len(importances)]
+
+        # --- Crear DataFrame de importancias ---
         fi = pd.DataFrame({
             "feature": feature_names,
-            "importance": estimator.feature_importances_
+            "importance": importances
         }).sort_values("importance", ascending=False)
 
+        # --- Mostrar tabla + gráfico ---
+        st.dataframe(fi)
         chart3 = alt.Chart(fi).mark_bar().encode(
             x="importance:Q",
             y=alt.Y("feature:N", sort="-x"),
@@ -234,6 +251,7 @@ try:
         st.info("El modelo no expone importancias de características.")
 except Exception as e:
     st.warning(f"No se pudo mostrar importancias: {e}")
+
 
 
 # ---------------------------
