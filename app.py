@@ -209,17 +209,24 @@ st.subheader("Importancia de características (si el modelo lo permite)")
 try:
     estimator = model.named_steps.get("model", model)
     if hasattr(estimator, "feature_importances_"):
+        # Intentar obtener los nombres reales desde el preprocesador
+        try:
+            preprocessor = model.named_steps.get("preprocessing", None)
+            if preprocessor is not None and hasattr(preprocessor, "get_feature_names_out"):
+                feature_names = preprocessor.get_feature_names_out()
+            else:
+                feature_names = [f"Feature {i}" for i in range(len(estimator.feature_importances_))]
+        except Exception:
+            feature_names = [f"Feature {i}" for i in range(len(estimator.feature_importances_))]
+
         fi = pd.DataFrame({
-            "feature": [
-                "temperature_2m","relative_humidity_2m","precipitation","cloudcover",
-                "pressure_msl","wind_speed_10m","wind_direction_10m",
-                "hora_sin","hora_cos","mes_sin","mes_cos","fin_de_semana"
-            ],
+            "feature": feature_names,
             "importance": estimator.feature_importances_
         }).sort_values("importance", ascending=False)
 
         chart3 = alt.Chart(fi).mark_bar().encode(
-            x="importance:Q", y=alt.Y("feature:N", sort="-x"),
+            x="importance:Q",
+            y=alt.Y("feature:N", sort="-x"),
             tooltip=["feature", "importance"]
         )
         st.altair_chart(chart3, use_container_width=True)
@@ -227,6 +234,7 @@ try:
         st.info("El modelo no expone importancias de características.")
 except Exception as e:
     st.warning(f"No se pudo mostrar importancias: {e}")
+
 
 # ---------------------------
 # DESCARGA
