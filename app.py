@@ -129,7 +129,7 @@ st.markdown(
     2. Visualiza los gráficos y la tabla de predicciones.
     3. Descarga los resultados si lo deseas.
 
-    💡 Esta herramienta utiliza modelos de aprendizaje automático entrenados con datos históricos y pronósticos meteorológicos.
+     Esta herramienta utiliza modelos de aprendizaje automático entrenados con datos históricos y pronósticos meteorológicos.
     """
 )
 
@@ -188,34 +188,20 @@ chart2 = alt.layer(
 st.altair_chart(chart2, use_container_width=True)
 
 # ---------------------------
-# IMPORTANCIA DE FEATURES
+# DISTRIBUCIÓN HORARIA DE DEMANDA
 # ---------------------------
-st.subheader(f"Importancia de características para '{region}'")
+st.subheader(f"Distribución horaria de demanda para '{region}'")
 try:
-    estimator = model.named_steps.get("model", model)
-    if hasattr(estimator,"feature_importances_"):
-        importances = estimator.feature_importances_
-        feature_names = None
-        if hasattr(model, "named_steps") and "preprocessing" in model.named_steps:
-            preprocessor = model.named_steps["preprocessing"]
-            if hasattr(preprocessor, "get_feature_names_out"):
-                feature_names = preprocessor.get_feature_names_out()
-                feature_names = [name.split("__")[-1] for name in feature_names]
-        if feature_names is None:
-            feature_names = df_forecast_aligned.drop(columns=["fecha"]).columns[:len(importances)]
-        fi = pd.DataFrame({"feature": feature_names[:len(importances)], "importance": importances})\
-                .sort_values("importance", ascending=False)
-        with st.expander("Ver tabla de importancia"):
-            st.dataframe(fi.head(10))
-        chart3 = alt.Chart(fi.head(10)).mark_bar().encode(
-            x="importance:Q", y=alt.Y("feature:N", sort="-x"),
-            color="importance:Q", tooltip=["feature","importance"]
-        ).properties(height=350)
-        st.altair_chart(chart3,use_container_width=True)
-    else:
-        st.info(f"El modelo para '{region}' no tiene 'feature_importances_'.")
+    df_forecast['hora'] = df_forecast['fecha'].dt.hour
+    chart_box = alt.Chart(df_forecast).mark_boxplot(extent='min-max').encode(
+        x=alt.X("hora:O", title="Hora del día"),
+        y=alt.Y("pred_dem:Q", title="Demanda (MW)"),
+        tooltip=["hora", "pred_dem"]
+    ).properties(height=400)
+    st.altair_chart(chart_box, use_container_width=True)
 except Exception as e:
-    st.warning(f"No se pudo mostrar importancias: {e}")
+    st.warning(f"No se pudo mostrar el gráfico de distribución: {e}")
+
 
 # ---------------------------
 # DESCARGA
