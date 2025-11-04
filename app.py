@@ -139,6 +139,7 @@ chart2 = alt.layer(
     alt.Chart(df_forecast).mark_line(color="blue").encode(
         x="fecha:T", y=alt.Y("pred_dem:Q", title="Demanda predicha")
     )
+).resolve_scale(y="independent").interactive()
 st.altair_chart(chart2, use_container_width=True)
 
 st.subheader("🔍 Importancia de características (si el modelo lo permite)")
