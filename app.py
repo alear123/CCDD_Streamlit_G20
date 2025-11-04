@@ -216,13 +216,14 @@ try:
     if hasattr(estimator, "feature_importances_"):
         importances = estimator.feature_importances_
 
-        # Intentar obtener nombres de features reales del preprocesador
+        # Obtener los nombres reales del preprocesador dentro del pipeline
         feature_names = None
-        if hasattr(model, "named_steps") and "preprocessing" in model.named_steps:
+        if "preprocessing" in model.named_steps:
             preprocessor = model.named_steps["preprocessing"]
             if hasattr(preprocessor, "get_feature_names_out"):
                 try:
                     feature_names = preprocessor.get_feature_names_out()
+                    # Limpiar prefijos tipo "num__" o "cat__"
                     feature_names = [
                         name.split("__")[-1].replace("num_", "").replace("cat_", "")
                         for name in feature_names
@@ -230,30 +231,36 @@ try:
                 except Exception:
                     feature_names = None
 
-        # Si no se pudieron obtener nombres, usar columnas del dataframe
+        # Si no los pudo obtener, usar nombres del modelo entrenado
         if feature_names is None:
-            feature_names = df_forecast.columns.tolist()
+            # usar columnas del modelo entrenado (más exacto)
+            feature_names = getattr(estimator, "feature_names_in_", None)
 
-        # Asegurar coincidencia exacta entre nombres e importancias
+        # Si todavía no hay nombres, usar columnas del DataFrame
+        if feature_names is None:
+            feature_names = list(df_forecast.columns)
+
+        # Asegurar longitudes coherentes
         n_feats = len(importances)
-        feature_names = feature_names[:n_feats]  # corta si sobran
+        feature_names = list(feature_names)[:n_feats]
         if len(feature_names) < n_feats:
             feature_names += [f"Feature_{i}" for i in range(len(feature_names), n_feats)]
 
-        # Crear dataframe de importancias
+        # Crear dataframe ordenado por importancia
         fi = (
             pd.DataFrame({
-                "feature": feature_names[:n_feats],
+                "feature": feature_names,
                 "importance": importances
             })
             .sort_values("importance", ascending=False)
             .reset_index(drop=True)
         )
 
-        st.write("Estas son las 10 variables más relevantes para el modelo seleccionado:")
+        # Mostrar top 10
+        st.write("Estas son las 10 variables más relevantes del modelo entrenado:")
         st.dataframe(fi.head(10))
 
-        # Gráfico interactivo con Altair
+        # Gráfico interactivo
         chart3 = (
             alt.Chart(fi.head(10))
             .mark_bar()
@@ -272,7 +279,6 @@ try:
         st.info(f"El modelo para región '{region}' ({modelo_tipo}) no tiene atributo 'feature_importances_'.")
 except Exception as e:
     st.warning(f"No se pudo mostrar importancias: {e}")
-
 
 
 # ---------------------------
