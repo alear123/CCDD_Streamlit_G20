@@ -207,44 +207,50 @@ st.altair_chart(chart2, use_container_width=True)
 
 st.subheader("🔍 Importancia de características (si el modelo lo permite)")
 try:
-    # Intentar obtener el estimador interno
     estimator = model.named_steps.get("model", model)
-    
+
     if hasattr(estimator, "feature_importances_"):
         importances = estimator.feature_importances_
 
-        # --- Intentar recuperar los nombres reales de las columnas ---
+        # --- Intentar obtener nombres reales ---
         feature_names = None
-
-        # Si el pipeline tiene preprocesador con método get_feature_names_out
         if hasattr(model, "named_steps") and "preprocessing" in model.named_steps:
             preprocessor = model.named_steps["preprocessing"]
-            try:
-                if hasattr(preprocessor, "get_feature_names_out"):
+            if hasattr(preprocessor, "get_feature_names_out"):
+                try:
                     feature_names = preprocessor.get_feature_names_out()
-                    # Convertir a nombres legibles (sin "column__")
+                    # limpiar prefijos tipo "column__"
                     feature_names = [name.split("__")[-1] for name in feature_names]
-            except Exception:
-                pass
+                except Exception:
+                    feature_names = None
 
-        # Si no se pudieron obtener, usar las columnas originales del DataFrame
-        if feature_names is None or len(feature_names) != len(importances):
-            feature_names = df_forecast.columns.tolist()
-            # Quitar columnas no numéricas si sobra
-            feature_names = feature_names[:len(importances)]
+        # Si no pudo obtener nombres, usar columnas originales o crear genéricos
+        if feature_names is None:
+            feature_names = list(df_forecast.columns)
+        # Asegurar que longitudes coincidan
+        n_feats = len(importances)
+        if len(feature_names) < n_feats:
+            # Completar con nombres genéricos
+            feature_names += [f"Feature_{i}" for i in range(len(feature_names), n_feats)]
+        elif len(feature_names) > n_feats:
+            # Recortar
+            feature_names = feature_names[:n_feats]
 
-        # --- Crear DataFrame de importancias ---
         fi = pd.DataFrame({
             "feature": feature_names,
             "importance": importances
         }).sort_values("importance", ascending=False)
 
-        # --- Mostrar tabla + gráfico ---
         st.dataframe(fi)
-        chart3 = alt.Chart(fi).mark_bar().encode(
-            x="importance:Q",
-            y=alt.Y("feature:N", sort="-x"),
-            tooltip=["feature", "importance"]
+        chart3 = (
+            alt.Chart(fi)
+            .mark_bar()
+            .encode(
+                x=alt.X("importance:Q", title="Importancia"),
+                y=alt.Y("feature:N", sort="-x", title="Feature"),
+                tooltip=["feature", "importance"]
+            )
+            .properties(height=320)
         )
         st.altair_chart(chart3, use_container_width=True)
     else:
