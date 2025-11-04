@@ -88,6 +88,7 @@ def fetch_open_meteo_forecast(lat, lon, timezone="America/Argentina/Buenos_Aires
     return df
 
 def align_forecast(df_forecast, region_name):
+    """Prepara el dataframe para predicción sin recalcular columnas temporales cíclicas."""
     df = df_forecast.copy()
     df['region'] = region_name
     df['estacion'] = df['fecha'].dt.month.map({
@@ -96,19 +97,11 @@ def align_forecast(df_forecast, region_name):
         6:"invierno",7:"invierno",8:"invierno",
         9:"primavera",10:"primavera",11:"primavera"
     })
-    df['hora'] = df['fecha'].dt.hour
-    df['dia_semana'] = df['fecha'].dt.weekday
-    df['mes'] = df['fecha'].dt.month
-    df['hora_sin'] = np.sin(2*np.pi*df['hora']/24)
-    df['hora_cos'] = np.cos(2*np.pi*df['hora']/24)
-    df['mes_sin'] = np.sin(2*np.pi*df['mes']/12)
-    df['mes_cos'] = np.cos(2*np.pi*df['mes']/12)
-    # columnas esperadas
+    # columnas esenciales para el pipeline
     expected_cols = [
         "fecha","cloudcover","pressure_msl","precipitation","temperature_2m",
         "wind_speed_10m","wind_direction_10m","relative_humidity_2m",
-        "region","fin_de_semana","estacion","hora","dia_semana","mes",
-        "hora_sin","hora_cos","mes_sin","mes_cos"
+        "region","fin_de_semana","estacion"
     ]
     for c in expected_cols:
         if c not in df.columns:
@@ -132,7 +125,7 @@ with st.spinner("Obteniendo pronóstico meteorológico..."):
 
 df_forecast_aligned = align_forecast(df_forecast, region)
 
-# ⚠️ Mantener 'fecha' para que FeatureEngineerTemporal funcione
+# Predecir
 df_forecast["pred_dem"] = model.predict(df_forecast_aligned)
 
 # ---------------------------
