@@ -230,10 +230,14 @@ def align_forecast_with_preprocessor(df_forecast, model, region_name=None):
 # Usar la función antes de predecir
 df_forecast_aligned = align_forecast_with_preprocessor(df_forecast, model, region_name=region)
 
+
+st.write("Columnas que entran al modelo:", list(df_forecast_aligned.columns))
+
 # Ahora predecir con el pipeline
 df_forecast["pred_dem"] = model.predict(df_forecast_aligned)
 
-
+X_trans = model.named_steps["preprocessing"].transform(df_forecast_aligned)
+st.write("Shape después del preprocessing:", X_trans.shape)
 # ---------------------------
 # VISUALIZACIONES
 # ---------------------------
