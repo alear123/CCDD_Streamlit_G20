@@ -194,7 +194,7 @@ chart1 = alt.Chart(df_forecast).mark_line().encode(
 ).interactive()
 st.altair_chart(chart1, use_container_width=True)
 
-st.subheader("🌡️ Temperatura vs Demanda")
+st.subheader(" Temperatura vs Demanda")
 chart2 = alt.layer(
     alt.Chart(df_forecast).mark_line(color="orange").encode(
         x="fecha:T", y=alt.Y("temperature_2m:Q", title="Temperatura (°C)")
