@@ -17,6 +17,29 @@ REGION_COORDS = {
 
 MODEL_FOLDER = "models"
 
+class FeatureEngineerTemporal(BaseEstimator, TransformerMixin):
+    def __init__(self, drop_original_fecha=True):
+        self.drop_original_fecha = drop_original_fecha
+
+    def fit(self, X, y=None):
+        return self
+
+    def transform(self, X):
+        df = X.copy()
+        if 'fecha' not in df.columns:
+            raise ValueError("No se encontró la columna 'fecha'.")
+        df['fecha'] = pd.to_datetime(df['fecha'], errors='coerce')
+        df['hora'] = df['fecha'].dt.hour
+        df['dia_semana'] = df['fecha'].dt.weekday
+        df['mes'] = df['fecha'].dt.month
+        df['hora_sin'] = np.sin(2 * np.pi * df['hora'] / 24)
+        df['hora_cos'] = np.cos(2 * np.pi * df['hora'] / 24)
+        df['mes_sin'] = np.sin(2 * np.pi * df['mes'] / 12)
+        df['mes_cos'] = np.cos(2 * np.pi * df['mes'] / 12)
+        if self.drop_original_fecha:
+            df = df.drop(columns=['fecha'], errors='ignore')
+        return df
+
 def load_model(region, model_folder=MODEL_FOLDER):
     model_path = os.path.join(model_folder, f"model_{region}.pkl")
     if not os.path.exists(model_path):
