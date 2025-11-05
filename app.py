@@ -1,4 +1,3 @@
-# app.py
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -8,21 +7,16 @@ import altair as alt
 import os
 from sklearn.base import BaseEstimator, TransformerMixin
 
-st.set_page_config(layout="wide", page_title="Predicción de demanda eléctrica", page_icon="⚡")
+st.set_page_config(layout="wide", page_title="Predicción de demanda eléctrica")
 
-# ---------------------------
-# CONFIGURACIÓN DE REGIONES
-# ---------------------------
 REGION_COORDS = {
-    "edelap": {"lat": -34.921, "lon": -57.954},  # La Plata
-    "edesur": {"lat": -34.615, "lon": -58.425},  # CABA sur
-    "edenor": {"lat": -34.567, "lon": -58.447}   # CABA norte
+    "edelap": {"lat": -34.921, "lon": -57.954},  
+    "edesur": {"lat": -34.615, "lon": -58.425},  
+    "edenor": {"lat": -34.567, "lon": -58.447}   
 }
+
 MODEL_FOLDER = "models"
 
-# ---------------------------
-# FEATURE ENGINEER
-# ---------------------------
 class FeatureEngineerTemporal(BaseEstimator, TransformerMixin):
     def __init__(self, drop_original_fecha=True):
         self.drop_original_fecha = drop_original_fecha
@@ -46,9 +40,6 @@ class FeatureEngineerTemporal(BaseEstimator, TransformerMixin):
             df = df.drop(columns=['fecha'], errors='ignore')
         return df
 
-# ---------------------------
-# FUNCIONES AUXILIARES
-# ---------------------------
 def load_model(region, model_folder=MODEL_FOLDER):
     model_path = os.path.join(model_folder, f"model_{region}.pkl")
     if not os.path.exists(model_path):
@@ -106,12 +97,6 @@ def align_forecast(df_forecast, region_name):
             df[c] = 0.0
     return df[expected_cols]
 
-# ---------------------------
-# SIDEBAR
-# ---------------------------
-# ---------------------------
-# TEXTO DE INTRODUCCIÓN
-# ---------------------------
 st.markdown(
     """
     #  Predicción de Demanda Eléctrica por Región
@@ -133,10 +118,6 @@ st.markdown(
     """
 )
 
-# ---------------------------
-# SIDEBAR
-# ---------------------------
-
 st.sidebar.title("Configuración")
 region = st.sidebar.selectbox("Selecciona la región:", list(REGION_COORDS.keys()))
 forecast_days = st.sidebar.slider("Días a predecir:", 1, 14, 7)
@@ -144,9 +125,6 @@ model = load_model(region)
 if model is None:
     st.stop()
 
-# ---------------------------
-# OBTENER DATOS
-# ---------------------------
 coords = REGION_COORDS[region]
 with st.spinner("Obteniendo pronóstico meteorológico..."):
     df_forecast = fetch_open_meteo_forecast(coords["lat"], coords["lon"], forecast_days=forecast_days)
@@ -156,18 +134,12 @@ df_forecast_aligned = align_forecast(df_forecast, region)
 with st.spinner("Generando predicciones..."):
     df_forecast["pred_dem"] = model.predict(df_forecast_aligned)
 
-# ---------------------------
-# TARJETAS DE ESTADÍSTICAS
-# ---------------------------
 st.subheader(f"Resumen de la demanda para '{region}'")
 col1, col2, col3 = st.columns(3)
 col1.metric("Máx. demanda", f"{df_forecast['pred_dem'].max():.2f} MW")
 col2.metric("Mín. demanda", f"{df_forecast['pred_dem'].min():.2f} MW")
 col3.metric("Demanda promedio", f"{df_forecast['pred_dem'].mean():.2f} MW")
 
-# ---------------------------
-# VISUALIZACIONES
-# ---------------------------
 st.subheader("Predicción horaria de demanda")
 chart1 = alt.Chart(df_forecast).mark_line(color="blue").encode(
     x="fecha:T",
@@ -187,9 +159,6 @@ chart2 = alt.layer(
 ).resolve_scale(y="independent").interactive()
 st.altair_chart(chart2, use_container_width=True)
 
-# ---------------------------
-# DISTRIBUCIÓN HORARIA DE DEMANDA
-# ---------------------------
 st.subheader(f"Distribución horaria de demanda para '{region}'")
 try:
     df_forecast['hora'] = df_forecast['fecha'].dt.hour
@@ -202,10 +171,6 @@ try:
 except Exception as e:
     st.warning(f"No se pudo mostrar el gráfico de distribución: {e}")
 
-
-# ---------------------------
-# DESCARGA
-# ---------------------------
 csv = df_forecast.to_csv(index=False)
 st.download_button(" Descargar predicciones (CSV)", csv,
                    file_name=f"predicciones_{region}.csv", mime="text/csv")
