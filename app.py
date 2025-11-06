@@ -6,6 +6,8 @@ import joblib
 import altair as alt
 import os
 from sklearn.base import BaseEstimator, TransformerMixin
+from datetime import datetime, timedelta
+
 
 st.set_page_config(layout="wide", page_title="Predicción de demanda eléctrica")
 
@@ -39,6 +41,78 @@ class FeatureEngineerTemporal(BaseEstimator, TransformerMixin):
         if self.drop_original_fecha:
             df = df.drop(columns=['fecha'], errors='ignore')
         return df
+    
+from datetime import datetime, timedelta
+
+def fetch_historical_demand(region_name, days_back):
+    """
+    Obtiene la demanda eléctrica histórica desde la API de CAMMESA
+    para una región específica y una cantidad de días hacia atrás.
+    
+    Parámetros:
+    -----------
+    region_name : str
+        Nombre de la región ("edelap", "edesur" o "edenor")
+    days_back : int
+        Cantidad de días hacia atrás a consultar
+    
+    Retorna:
+    --------
+    pd.DataFrame
+        DataFrame con columnas ['fecha', 'dem']
+    """
+    # Mapa de regiones a sus IDs en CAMMESA
+    REGION_IDS = {
+        "edelap": 29000034,
+        "edenor": 1002080,
+        "edesur": 2000002
+    }
+
+    if region_name not in REGION_IDS:
+        raise ValueError(f"Región '{region_name}' no reconocida. Usa: {list(REGION_IDS.keys())}")
+
+    region_id = REGION_IDS[region_name]
+    base_url = "https://api.cammesa.com/demanda-svc/demanda/ObtieneDemandaYTemperaturaRegionByFecha"
+    
+    # Lista para acumular resultados diarios
+    all_records = []
+
+    for i in range(days_back):
+        fecha_consulta = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
+        params = {"fecha": fecha_consulta, "id_region": region_id}
+        try:
+            response = requests.get(base_url, params=params, timeout=10)
+            response.raise_for_status()
+            data = response.json()
+            
+            if not data:
+                continue
+
+            df_dia = pd.DataFrame(data)
+            # Normalizamos los nombres y filtramos columnas importantes
+            if "fecha" in df_dia.columns and "dem" in df_dia.columns:
+                df_dia["fecha"] = pd.to_datetime(df_dia["fecha"], errors="coerce")
+                all_records.append(df_dia[["fecha", "dem"]])
+            else:
+                # Algunos endpoints devuelven 'demanda' o similar
+                posibles_cols = [c for c in df_dia.columns if "dem" in c.lower()]
+                if posibles_cols:
+                    df_dia["fecha"] = pd.to_datetime(df_dia["fecha"], errors="coerce")
+                    df_dia = df_dia.rename(columns={posibles_cols[0]: "dem"})
+                    all_records.append(df_dia[["fecha", "dem"]])
+        except Exception as e:
+            print(f"Error obteniendo datos del {fecha_consulta}: {e}")
+            continue
+
+    if not all_records:
+        st.warning(f"No se obtuvieron datos históricos para {region_name}.")
+        return pd.DataFrame(columns=["fecha", "dem"])
+
+    # Concatenamos y ordenamos
+    df_hist = pd.concat(all_records).dropna(subset=["fecha", "dem"]).sort_values("fecha")
+    df_hist.reset_index(drop=True, inplace=True)
+    return df_hist
+
 
 def load_model(region, model_folder=MODEL_FOLDER):
     model_path = os.path.join(model_folder, f"model_{region}.pkl")
@@ -130,6 +204,19 @@ with st.spinner("Obteniendo pronóstico meteorológico..."):
     df_forecast = fetch_open_meteo_forecast(coords["lat"], coords["lon"], forecast_days=forecast_days)
 
 df_forecast_aligned = align_forecast(df_forecast, region)
+
+with st.spinner("Obteniendo datos históricos de CAMMESA..."):
+    df_hist = fetch_historical_demand(region, days_back=forecast_days) 
+
+st.subheader("Demanda histórica (últimos días)")
+if not df_hist.empty:
+    chart_hist = alt.Chart(df_hist).mark_line(color="gray").encode(
+        x="fecha:T", y="dem:Q", tooltip=["fecha", "dem"]
+    ).interactive()
+    st.altair_chart(chart_hist, use_container_width=True)
+else:
+    st.info("No se encontraron datos históricos para la región seleccionada.")
+
 
 with st.spinner("Generando predicciones..."):
     df_forecast["pred_dem"] = model.predict(df_forecast_aligned)
