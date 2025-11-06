@@ -360,9 +360,9 @@ with tab_explore:
     st.altair_chart(chart_temp_dem, use_container_width=True)
 
     # ========================================================
-    # 🔹 GRÁFICO: Matriz de correlación interactiva
+    # 🔹 GRÁFICO: Top correlaciones con demanda energética (por región)
     # ========================================================
-    st.subheader("📈 Matriz de correlación interactiva")
+    st.subheader("🏆 Top correlaciones con la demanda energética")
 
     # --- Selector de región dinámico ---
     region_param_corr = alt.param(
@@ -377,33 +377,36 @@ with tab_explore:
     # --- Variables numéricas ---
     columnas_numericas = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
 
-    # --- Calcular correlación por región ---
-    def calcular_correlacion_por_region(df, region):
+    # --- Calcular correlación con 'dem' por región ---
+    def calcular_top_correlaciones(df, region):
         subset = df[df["region"] == region]
-        corr = subset[columnas_numericas].corr().stack().reset_index()
-        corr.columns = ["Variable X", "Variable Y", "Correlación"]
+        corr = subset[columnas_numericas].corr()["dem"].drop("dem").reset_index()
+        corr.columns = ["Variable", "Correlación"]
         corr["region"] = region
+        corr["AbsCorrelación"] = corr["Correlación"].abs()
+        corr = corr.sort_values("AbsCorrelación", ascending=False).head(10)  # Top 10
         return corr
 
-    # Unir todas las correlaciones por región
-    region_corr = pd.concat(
-        [calcular_correlacion_por_region(df, r) for r in df["region"].unique()],
+    region_corr_top = pd.concat(
+        [calcular_top_correlaciones(df, r) for r in df["region"].unique()],
         ignore_index=True
     )
 
-    # --- Crear gráfico interactivo ---
+    # --- Crear gráfico de barras ---
     corr_chart = (
-        alt.Chart(region_corr)
-        .mark_rect()
+        alt.Chart(region_corr_top)
+        .mark_bar()
         .encode(
-            x=alt.X("Variable X:N", title="Variable X"),
-            y=alt.Y("Variable Y:N", title="Variable Y"),
+            x=alt.X("Correlación:Q",
+                    title="Coeficiente de correlación con demanda (dem)",
+                    scale=alt.Scale(domain=(-1, 1))),
+            y=alt.Y("Variable:N",
+                    sort='-x',
+                    title="Variable"),
             color=alt.Color("Correlación:Q",
-                        scale=alt.Scale(scheme="blueorange", domain=(-1, 1)),
-                        title="Correlación"),
+                            scale=alt.Scale(scheme="blueorange", domain=(-1, 1))),
             tooltip=[
-                "Variable X:N",
-                "Variable Y:N",
+                "Variable:N",
                 alt.Tooltip("Correlación:Q", format=".2f"),
                 "region:N"
             ]
@@ -411,9 +414,9 @@ with tab_explore:
         .add_params(region_param_corr)
         .transform_filter("datum.region == RegiónCorr")
         .properties(
-            width=600,
-            height=600,
-            title="Matriz de correlación por región"
+            width=700,
+            height=400,
+            title="Top 10 variables más correlacionadas con la demanda energética por región"
         )
         .interactive()
     )
