@@ -63,9 +63,9 @@ def fetch_historical_demand(region_name, days_back):
     """
     # Mapa de regiones a sus IDs en CAMMESA
     REGION_IDS = {
-        "edelap": 29000034,
-        "edenor": 1002080,
-        "edesur": 2000002
+        "edelap": 1943,
+        "edenor": 1077,
+        "edesur": 1078
     }
 
     if region_name not in REGION_IDS:
