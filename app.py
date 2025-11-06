@@ -302,19 +302,20 @@ with tab_explore:
     st.header("📊 Análisis Exploratorio de Datos (EDA)")
     st.info("Explorá las relaciones entre variables climáticas y la demanda energética con visualizaciones interactivas controladas desde el gráfico.")
 
-    # 📂 Cargar dataset local
-    df = pd.read_csv("dataset/master_energy_preprocessed.csv")
+    # 📂 Cargar el nuevo dataset procesado
+    df = pd.read_csv("dataset_temporal.csv")
 
-    # Conversión de fechas y columna hora
-    df["fecha"] = pd.to_datetime(df["fecha"])
-    if "hora" not in df.columns:
+    # Asegurar tipos de datos
+    if "fecha" in df.columns:
+        df["fecha"] = pd.to_datetime(df["fecha"])
+    if "hora" not in df.columns and "fecha" in df.columns:
         df["hora"] = df["fecha"].dt.hour
 
     st.write(f"**Filas:** {df.shape[0]} | **Columnas:** {df.shape[1]}")
     st.dataframe(df.head())
 
     # ========================================================
-    # 🔹 GRÁFICO 1: Temperatura vs Demanda (con selector de región y estación)
+    # 🔹 GRÁFICO 1: Temperatura vs Demanda (selector de región)
     # ========================================================
     st.subheader("🌡️ Relación entre temperatura y demanda energética")
 
@@ -327,15 +328,6 @@ with tab_explore:
         value=df['region'].unique()[0]
     )
 
-    estacion_param = alt.param(
-        name='Estación',
-        bind=alt.binding_select(
-            options=['Todas'] + sorted(df['estacion'].unique().tolist()),
-            name='Estación: '
-        ),
-        value='Todas'
-    )
-
     # Gráfico base
     chart_temp_dem = (
         alt.Chart(df)
@@ -344,13 +336,12 @@ with tab_explore:
             x=alt.X('temperature_2m:Q', title='Temperatura (°C)'),
             y=alt.Y('dem:Q', title='Demanda energética (MW)'),
             color=alt.Color('estacion:N', title='Estación'),
-            tooltip=['fecha:T', 'temperature_2m:Q', 'dem:Q', 'region:N', 'estacion']
+            tooltip=['region:N', 'estacion:N', 'hora:Q', 'temperature_2m:Q', 'dem:Q']
         )
-        .add_params(region_param, estacion_param)
+        .add_params(region_param)
         .transform_filter('datum.region == Región')
-        .transform_filter("(Estación == 'Todas') || (datum.estacion == Estación)")
         .properties(
-            title='Relación entre temperatura y demanda energética por región y estación',
+            title='Relación entre temperatura y demanda energética por región',
             width=700,
             height=400
         )
@@ -360,11 +351,10 @@ with tab_explore:
     st.altair_chart(chart_temp_dem, use_container_width=True)
 
     # ========================================================
-    # 🔹 GRÁFICO: Matriz de correlación interactiva
+    # 🔹 GRÁFICO 2: Matriz de correlación interactiva (con región)
     # ========================================================
     st.subheader("📈 Matriz de correlación interactiva")
 
-    # --- Selector de región dinámico ---
     region_param_corr = alt.param(
         name='RegiónCorr',
         bind=alt.binding_select(
@@ -374,10 +364,10 @@ with tab_explore:
         value=df['region'].unique()[0]
     )
 
-    # --- Variables numéricas ---
+    # Seleccionar solo columnas numéricas
     columnas_numericas = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
 
-    # --- Calcular correlación por región ---
+    # Calcular correlación por región
     def calcular_correlacion_por_region(df, region):
         subset = df[df["region"] == region]
         corr = subset[columnas_numericas].corr().stack().reset_index()
@@ -385,13 +375,11 @@ with tab_explore:
         corr["region"] = region
         return corr
 
-    # Unir todas las correlaciones por región
     region_corr = pd.concat(
         [calcular_correlacion_por_region(df, r) for r in df["region"].unique()],
         ignore_index=True
     )
 
-    # --- Crear gráfico interactivo ---
     corr_chart = (
         alt.Chart(region_corr)
         .mark_rect()
@@ -399,8 +387,8 @@ with tab_explore:
             x=alt.X("Variable X:N", title="Variable X"),
             y=alt.Y("Variable Y:N", title="Variable Y"),
             color=alt.Color("Correlación:Q",
-                        scale=alt.Scale(scheme="blueorange", domain=(-1, 1)),
-                        title="Correlación"),
+                            scale=alt.Scale(scheme="blueorange", domain=(-1, 1)),
+                            title="Correlación"),
             tooltip=[
                 "Variable X:N",
                 "Variable Y:N",
