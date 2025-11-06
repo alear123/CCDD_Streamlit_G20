@@ -8,95 +8,11 @@ import os
 from sklearn.base import BaseEstimator, TransformerMixin
 from datetime import datetime, timedelta
 
-# Configuración de página con tema personalizado
 st.set_page_config(
     layout="wide", 
     page_title="Predicción de Demanda Eléctrica",
-    page_icon="",
     initial_sidebar_state="expanded"
 )
-
-# CSS personalizado para mejorar la UI
-st.markdown("""
-    <style>
-    /* Mejorar el encabezado principal */
-    .main-header {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        padding: 2rem;
-        border-radius: 10px;
-        color: white;
-        margin-bottom: 2rem;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
-    
-    .main-header h1 {
-        margin: 0;
-        font-size: 2.5rem;
-        font-weight: 700;
-    }
-    
-    .main-header p {
-        margin: 0.5rem 0 0 0;
-        font-size: 1.1rem;
-        opacity: 0.95;
-    }
-    
-    /* Mejorar las métricas */
-    [data-testid="stMetricValue"] {
-        font-size: 2rem;
-        font-weight: 700;
-    }
-    
-    /* Mejorar las tarjetas */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 8px;
-        padding: 0.5rem;
-        border-radius: 10px;
-    }
-    
-    .stTabs [data-baseweb="tab"] {
-        border-radius: 8px;
-        padding: 0.5rem 1.5rem;
-        font-weight: 600;
-    }
-    
-    /* Sidebar styling */
-    [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #f8f9fa 0%, #ffffff 100%);
-    }
-    
-    /* Botones */
-    .stDownloadButton button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 0.5rem 2rem;
-        font-weight: 600;
-        transition: all 0.3s;
-    }
-    
-    .stDownloadButton button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    }
-    
-    /* Info boxes */
-    .stAlert {
-        border-radius: 10px;
-        border-left: 4px solid #667eea;
-    }
-    
-    /* Secciones */
-    .section-container {
-        background: white;
-        padding: 1.5rem;
-        border-radius: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        margin-bottom: 1rem;
-    }
-    </style>
-""", unsafe_allow_html=True)
 
 REGION_COORDS = {
     "edelap": {"lat": -34.921, "lon": -57.954, "nombre": "EDELAP - La Plata"},
@@ -168,7 +84,7 @@ def fetch_historical_demand(region_name, days_back):
             continue
 
     if not all_records:
-        st.warning(f"⚠️ No se obtuvieron datos históricos para {region_name}.")
+        st.warning(f"No se obtuvieron datos históricos para {region_name}.")
         return pd.DataFrame(columns=["fecha", "dem"])
 
     df_hist = pd.concat(all_records).dropna(subset=["fecha", "dem"]).sort_values("fecha")
@@ -178,12 +94,12 @@ def fetch_historical_demand(region_name, days_back):
 def load_model(region, model_folder=MODEL_FOLDER):
     model_path = os.path.join(model_folder, f"model_{region}.pkl")
     if not os.path.exists(model_path):
-        st.error(f" No se encontró el modelo para la región '{region}' en {model_path}")
+        st.error(f"No se encontró el modelo para la región '{region}' en {model_path}")
         return None
     try:
         return joblib.load(model_path)
     except Exception as e:
-        st.error(f" Error al cargar el modelo: {e}")
+        st.error(f"Error al cargar el modelo: {e}")
         return None
 
 def fetch_open_meteo_forecast(lat, lon, timezone="America/Argentina/Buenos_Aires", forecast_days=7):
@@ -232,40 +148,30 @@ def align_forecast(df_forecast, region_name):
             df[c] = 0.0
     return df[expected_cols]
 
-# Header principal mejorado
-st.markdown("""
-    <div class="main-header">
-        <h1> Predicción de Demanda Eléctrica</h1>
-        <p>Sistema inteligente de pronóstico para regiones de Buenos Aires y La Plata</p>
-    </div>
-""", unsafe_allow_html=True)
+st.title("Predicción de Demanda Eléctrica")
+st.write("Sistema de pronóstico para regiones de Buenos Aires y La Plata")
 
-# Sidebar mejorado
 with st.sidebar:
-    st.title(" Configuración")
-    st.markdown("---")
+    st.header("Configuración")
     
     region = st.selectbox(
-        " Región",
+        "Región",
         list(REGION_COORDS.keys()),
         format_func=lambda x: REGION_COORDS[x]["nombre"]
     )
     
     forecast_days = st.slider(
-        " Días a predecir",
+        "Días a predecir",
         min_value=1,
         max_value=14,
-        value=7,
-        help="Selecciona cuántos días deseas pronosticar"
+        value=7
     )
     
-    st.markdown("---")
-    st.markdown("###  Información")
-    st.info(f"""
-    **Región:** {REGION_COORDS[region]["nombre"]}  
-    **Coordenadas:** {REGION_COORDS[region]["lat"]}, {REGION_COORDS[region]["lon"]}  
-    **Días:** {forecast_days}
-    """)
+    st.write("---")
+    st.subheader("Información")
+    st.write(f"**Región:** {REGION_COORDS[region]['nombre']}")
+    st.write(f"**Coordenadas:** {REGION_COORDS[region]['lat']}, {REGION_COORDS[region]['lon']}")
+    st.write(f"**Días:** {forecast_days}")
 
 model = load_model(region)
 if model is None:
@@ -273,58 +179,52 @@ if model is None:
 
 coords = REGION_COORDS[region]
 
-# Tabs mejoradas
-tab_pred, tab_explore = st.tabs([" Predicción y Análisis", " Análisis Exploratorio"])
+tab_pred, tab_explore = st.tabs(["Predicción y Análisis", "Análisis Exploratorio"])
 
-# =====================================================
-# PESTAÑA 1: PREDICCIÓN
-# =====================================================
 with tab_pred:
-    with st.spinner(" Obteniendo pronóstico meteorológico..."):
+    with st.spinner("Obteniendo pronóstico meteorológico..."):
         df_forecast = fetch_open_meteo_forecast(coords["lat"], coords["lon"], forecast_days=forecast_days)
 
     df_forecast_aligned = align_forecast(df_forecast, region)
 
-    with st.spinner(" Obteniendo datos históricos de CAMMESA..."):
+    with st.spinner("Obteniendo datos históricos de CAMMESA..."):
         df_hist = fetch_historical_demand(region, days_back=forecast_days) 
 
-    with st.spinner(" Generando predicciones"):
+    with st.spinner("Generando predicciones..."):
         df_forecast["pred_dem"] = model.predict(df_forecast_aligned)
 
-    # Métricas destacadas
-    st.markdown("###  Resumen ")
+    st.subheader("Resumen")
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         st.metric(
-            " Demanda Máxima",
+            "Demanda Máxima",
             f"{df_forecast['pred_dem'].max():.0f} MW",
             delta=f"{((df_forecast['pred_dem'].max() - df_forecast['pred_dem'].mean()) / df_forecast['pred_dem'].mean() * 100):.1f}%"
         )
     
     with col2:
         st.metric(
-            " Demanda Mínima",
+            "Demanda Mínima",
             f"{df_forecast['pred_dem'].min():.0f} MW",
             delta=f"-{((df_forecast['pred_dem'].mean() - df_forecast['pred_dem'].min()) / df_forecast['pred_dem'].mean() * 100):.1f}%"
         )
     
     with col3:
         st.metric(
-            " Promedio",
+            "Promedio",
             f"{df_forecast['pred_dem'].mean():.0f} MW"
         )
     
     with col4:
         st.metric(
-            " Temp. Promedio",
+            "Temp. Promedio",
             f"{df_forecast['temperature_2m'].mean():.1f}°C"
         )
 
-    st.markdown("---")
+    st.write("---")
 
-    # Gráfico principal combinado
-    st.markdown("###  Demanda Histórica y Predicción")
+    st.subheader("Demanda Histórica y Predicción")
     
     df_hist["fecha"] = pd.to_datetime(df_hist["fecha"], errors="coerce")
     df_hist = (
@@ -356,10 +256,7 @@ with tab_pred:
         base = alt.Chart(df_comb).encode(
             x=alt.X("fecha:T", title="Fecha y Hora", axis=alt.Axis(format="%d/%m %H:%M")),
             y=alt.Y("dem:Q", title="Demanda (MW)", scale=alt.Scale(zero=False)),
-            color=alt.Color("tipo:N", 
-                          title="Serie",
-                          scale=alt.Scale(domain=["Histórico", "Predicción"],
-                                        range=["#667eea", "#f093fb"])),
+            color=alt.Color("tipo:N", title="Serie"),
             tooltip=[
                 alt.Tooltip("fecha:T", title="Fecha", format="%d/%m/%Y %H:%M"),
                 alt.Tooltip("dem:Q", title="Demanda (MW)", format=".2f"),
@@ -367,24 +264,19 @@ with tab_pred:
             ]
         )
 
-        chart_comb = base.mark_line(strokeWidth=3).interactive().properties(
-            height=450,
-            title={
-                "text": "Evolución de la Demanda Eléctrica",
-                "fontSize": 18,
-                "fontWeight": "bold"
-            }
+        chart_comb = base.mark_line(strokeWidth=2).interactive().properties(
+            height=400,
+            title="Evolución de la Demanda Eléctrica"
         )
 
         st.altair_chart(chart_comb, use_container_width=True)
     else:
-        st.info(" No se encontraron datos históricos para la región seleccionada.")
+        st.info("No se encontraron datos históricos para la región seleccionada.")
 
-    # Dos columnas para gráficos adicionales
     col_left, col_right = st.columns(2)
     
     with col_left:
-        st.markdown("###  Temperatura vs Demanda")
+        st.subheader("Temperatura vs Demanda")
         
         df_forecast['hora'] = df_forecast['fecha'].dt.hour
         
@@ -410,56 +302,42 @@ with tab_pred:
         
         chart_combined = alt.layer(line_temp, line_dem).resolve_scale(
             y="independent"
-        ).properties(height=350).interactive()
+        ).properties(height=300).interactive()
         
         st.altair_chart(chart_combined, use_container_width=True)
     
     with col_right:
-        st.markdown("### Distribución Horaria")
+        st.subheader("Distribución Horaria")
         
-        chart_box = alt.Chart(df_forecast).mark_boxplot(
-            extent='min-max',
-            color="#667eea",
-            opacity=0.7
-        ).encode(
+        chart_box = alt.Chart(df_forecast).mark_boxplot(extent='min-max').encode(
             x=alt.X("hora:O", title="Hora del día"),
             y=alt.Y("pred_dem:Q", title="Demanda (MW)"),
             tooltip=["hora:O", "pred_dem:Q"]
-        ).properties(height=350)
+        ).properties(height=300)
         
         st.altair_chart(chart_box, use_container_width=True)
 
-    # Botón de descarga mejorado
-    st.markdown("---")
-    col_btn1, col_btn2, col_btn3 = st.columns([1, 2, 1])
-    with col_btn2:
-        csv = df_forecast.to_csv(index=False)
-        st.download_button(
-            " Descargar Predicciones Completas",
-            csv,
-            file_name=f"predicciones_{region}_{datetime.now().strftime('%Y%m%d')}.csv",
-            mime="text/csv",
-            use_container_width=True
-        )
-    
-    st.success(" Predicción completada correctamente")
+    st.write("---")
+    csv = df_forecast.to_csv(index=False)
+    st.download_button(
+        "Descargar Predicciones Completas",
+        csv,
+        file_name=f"predicciones_{region}_{datetime.now().strftime('%Y%m%d')}.csv",
+        mime="text/csv"
+    )
 
-# =====================================================
-# PESTAÑA 2: ANÁLISIS EXPLORATORIO
-# =====================================================
 with tab_explore:
     alt.data_transformers.disable_max_rows()
 
-    st.markdown("##  Análisis Exploratorio de Datos")
-    st.info(" Explora las relaciones entre variables climáticas y la demanda energética con visualizaciones interactivas.")
+    st.header("Análisis Exploratorio de Datos")
+    st.info("Explora las relaciones entre variables climáticas y la demanda energética con visualizaciones interactivas.")
 
     df = pd.read_csv("dataset/master_energy_preprocessed.csv")
     df["fecha"] = pd.to_datetime(df["fecha"])
     if "hora" not in df.columns:
         df["hora"] = df["fecha"].dt.hour
 
-    # Gráfico 1: Temperatura vs Demanda
-    st.markdown("###  Temperatura vs Demanda Energética")
+    st.subheader("Temperatura vs Demanda Energética")
     
     region_param = alt.param(
         name='Región',
@@ -481,13 +359,11 @@ with tab_explore:
 
     chart_temp_dem = (
         alt.Chart(df)
-        .mark_circle(size=80, opacity=0.5)
+        .mark_circle(size=60, opacity=0.4)
         .encode(
             x=alt.X('temperature_2m:Q', title='Temperatura (°C)'),
             y=alt.Y('dem:Q', title='Demanda energética (MW)'),
-            color=alt.Color('estacion:N', 
-                          title='Estación',
-                          scale=alt.Scale(scheme='category10')),
+            color=alt.Color('estacion:N', title='Estación'),
             tooltip=[
                 alt.Tooltip('fecha:T', format='%d/%m/%Y %H:%M'),
                 alt.Tooltip('temperature_2m:Q', title='Temp (°C)', format='.1f'),
@@ -499,16 +375,15 @@ with tab_explore:
         .add_params(region_param, estacion_param)
         .transform_filter('datum.region == Región')
         .transform_filter("(Estación == 'Todas') || (datum.estacion == Estación)")
-        .properties(height=450)
+        .properties(height=400)
         .interactive()
     )
 
     st.altair_chart(chart_temp_dem, use_container_width=True)
 
-    st.markdown("---")
+    st.write("---")
 
-    # Gráfico 2: Patrón horario
-    st.markdown("###  Patrón Horario de la Demanda")
+    st.subheader("Patrón Horario de la Demanda")
 
     region_param_hora = alt.param(
         name='RegiónHora',
@@ -529,30 +404,26 @@ with tab_explore:
 
     chart_horario = (
         alt.Chart(df_horario)
-        .mark_line(point=True, strokeWidth=3)
+        .mark_line(point=True, strokeWidth=2)
         .encode(
             x=alt.X("hora:O", title="Hora del día"),
             y=alt.Y("dem:Q", title="Demanda promedio (MW)"),
-            color=alt.Color("tipo_dia:N", 
-                          title="Tipo de día",
-                          scale=alt.Scale(domain=["Día laboral", "Fin de semana"],
-                                        range=["#667eea", "#f093fb"])),
+            color=alt.Color("tipo_dia:N", title="Tipo de día"),
             tooltip=["hora:O", 
                     alt.Tooltip("dem:Q", format=".2f", title="Demanda (MW)"),
                     "tipo_dia:N"]
         )
         .add_params(region_param_hora)
         .transform_filter("datum.region == RegiónHora")
-        .properties(height=450)
+        .properties(height=400)
         .interactive()
     )
 
     st.altair_chart(chart_horario, use_container_width=True)
 
-    st.markdown("---")
+    st.write("---")
 
-    # Gráfico 3: Viento vs Demanda
-    st.markdown("###  Velocidad del Viento vs Demanda")
+    st.subheader("Velocidad del Viento vs Demanda")
 
     region_param_viento = alt.param(
         name='RegiónViento',
@@ -574,13 +445,11 @@ with tab_explore:
 
     chart_viento = (
         alt.Chart(df)
-        .mark_circle(size=80, opacity=0.5)
+        .mark_circle(size=60, opacity=0.4)
         .encode(
             x=alt.X('wind_speed_10m:Q', title='Velocidad del viento (m/s)'),
             y=alt.Y('dem:Q', title='Demanda energética (MW)'),
-            color=alt.Color('estacion:N', 
-                          title='Estación',
-                          scale=alt.Scale(scheme='category10')),
+            color=alt.Color('estacion:N', title='Estación'),
             tooltip=[
                 alt.Tooltip('fecha:T', format='%d/%m/%Y %H:%M'),
                 alt.Tooltip('wind_speed_10m:Q', title='Viento (m/s)', format='.1f'),
@@ -592,17 +461,11 @@ with tab_explore:
         .add_params(region_param_viento, estacion_param_viento)
         .transform_filter("datum.region == RegiónViento")
         .transform_filter("(EstacionViento == 'Todas') || (datum.estacion == EstacionViento)")
-        .properties(height=450)
+        .properties(height=400)
         .interactive()
     )
 
     st.altair_chart(chart_viento, use_container_width=True)
 
-# Footer
-st.markdown("---")
-st.markdown("""
-    <div style='text-align: center; color: #666; padding: 1rem;'>
-        <p> Sistema de Predicción de Demanda Eléctrica </p>
-        <p style='font-size: 0.9rem;'>Datos provistos por CAMMESA y Open-Meteo</p>
-    </div>
-""", unsafe_allow_html=True)
+st.write("---")
+st.caption("Sistema de Predicción de Demanda Eléctrica - Datos provistos por CAMMESA y Open-Meteo")
