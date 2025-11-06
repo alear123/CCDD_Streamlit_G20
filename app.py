@@ -404,12 +404,13 @@ with tab_explore:
     st.altair_chart(chart_horario, use_container_width=True)
 
     # ========================================================
-    # 🔹 GRÁFICO 3: Relación entre precipitación y demanda energética
     # ========================================================
-    st.subheader("🌧 Relación entre precipitación y demanda energética")
+    # 🔹 GRÁFICO: Velocidad del viento vs Demanda energética
+    # ========================================================
+    st.subheader("🌬 Relación entre velocidad del viento y demanda energética")
 
-    region_param_precip = alt.param(
-        name='RegiónPrecip',
+    region_param_viento = alt.param(
+        name='RegiónViento',
         bind=alt.binding_select(
             options=list(df['region'].unique()),
             name='Región: '
@@ -417,8 +418,8 @@ with tab_explore:
         value=df['region'].unique()[0]
     )
 
-    estacion_param_precip = alt.param(
-        name='EstacionPrecip',
+    estacion_param_viento = alt.param(
+        name='EstacionViento',
         bind=alt.binding_select(
             options=['Todas'] + sorted(df['estacion'].unique().tolist()),
             name='Estación: '
@@ -426,27 +427,30 @@ with tab_explore:
         value='Todas'
     )
 
-    chart_precip = (
+    chart_viento = (
         alt.Chart(df)
         .mark_circle(size=60, opacity=0.6)
         .encode(
-            x=alt.X('precipitation:Q', title='Precipitación (mm)'),
+            x=alt.X('wind_speed_10m:Q', title='Velocidad del viento (m/s)'),
             y=alt.Y('dem:Q', title='Demanda energética (MW)'),
             color=alt.Color('estacion:N', title='Estación'),
-            tooltip=['fecha:T', 'precipitation:Q', 'dem:Q', 'region:N', 'estacion']
+            tooltip=['fecha:T', 'wind_speed_10m:Q', 'dem:Q', 'region:N', 'estacion']
         )
-        .add_params(region_param_precip, estacion_param_precip)
-        .transform_filter("datum.region == RegiónPrecip")
-        .transform_filter("(EstacionPrecip == 'Todas') || (datum.estacion == EstacionPrecip)")
+        .add_params(region_param_viento, estacion_param_viento)
+        .transform_filter("datum.region == RegiónViento")
+        .transform_filter("(EstacionViento == 'Todas') || (datum.estacion == EstacionViento)")
         .properties(
-            title='Relación entre precipitación y demanda energética por estación y región',
+            title='Relación entre velocidad del viento y demanda energética',
             width=700,
             height=400
         )
         .interactive()
     )
 
-    st.altair_chart(chart_precip, use_container_width=True)
+    st.altair_chart(chart_viento, use_container_width=True)
+
+
+
 
 
 
