@@ -208,14 +208,7 @@ df_forecast_aligned = align_forecast(df_forecast, region)
 with st.spinner("Obteniendo datos históricos de CAMMESA..."):
     df_hist = fetch_historical_demand(region, days_back=forecast_days) 
 
-st.subheader("Demanda histórica (últimos días)")
-if not df_hist.empty:
-    chart_hist = alt.Chart(df_hist).mark_line(color="gray").encode(
-        x="fecha:T", y="dem:Q", tooltip=["fecha", "dem"]
-    ).interactive()
-    st.altair_chart(chart_hist, use_container_width=True)
-else:
-    st.info("No se encontraron datos históricos para la región seleccionada.")
+
 
 
 with st.spinner("Generando predicciones..."):
@@ -227,13 +220,31 @@ col1.metric("Máx. demanda", f"{df_forecast['pred_dem'].max():.2f} MW")
 col2.metric("Mín. demanda", f"{df_forecast['pred_dem'].min():.2f} MW")
 col3.metric("Demanda promedio", f"{df_forecast['pred_dem'].mean():.2f} MW")
 
-st.subheader("Predicción horaria de demanda")
-chart1 = alt.Chart(df_forecast).mark_line(color="blue").encode(
-    x="fecha:T",
-    y="pred_dem:Q",
-    tooltip=["fecha","pred_dem"]
-).interactive()
-st.altair_chart(chart1, use_container_width=True)
+st.subheader("Demanda histórica y predicción combinadas")
+
+if not df_hist.empty:
+    # Creamos un DataFrame unificado
+    df_hist["tipo"] = "Histórico"
+    df_forecast["tipo"] = "Predicción"
+    df_forecast_rename = df_forecast.rename(columns={"pred_dem": "dem"})
+    
+    df_comb = pd.concat([
+        df_hist[["fecha", "dem", "tipo"]],
+        df_forecast_rename[["fecha", "dem", "tipo"]]
+    ]).sort_values("fecha")
+
+    # Gráfico combinado
+    chart_comb = alt.Chart(df_comb).mark_line().encode(
+        x="fecha:T",
+        y=alt.Y("dem:Q", title="Demanda (MW)"),
+        color=alt.Color("tipo:N", title="Tipo", scale=alt.Scale(domain=["Histórico", "Predicción"], range=["gray", "blue"])),
+        tooltip=["fecha:T", "dem:Q", "tipo:N"]
+    ).interactive()
+
+    st.altair_chart(chart_comb, use_container_width=True)
+else:
+    st.info("No se encontraron datos históricos para la región seleccionada.")
+
 
 st.subheader("Temperatura vs Demanda")
 chart2 = alt.layer(
