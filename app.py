@@ -359,7 +359,7 @@ with tab_explore:
 
     st.altair_chart(chart_temp_dem, use_container_width=True)
 
-        # ========================================================
+    # ========================================================
     # 🔹 GRÁFICO: Matriz de correlación interactiva
     # ========================================================
     st.subheader("📈 Matriz de correlación interactiva")
@@ -374,15 +374,21 @@ with tab_explore:
         value=df['region'].unique()[0]
     )
 
-    # --- Obtener variables numéricas ---
+    # --- Variables numéricas ---
     columnas_numericas = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
 
-    # --- Calcular correlación por región (preprocesado en pandas) ---
-    region_corr = (
-        df.groupby("region")[columnas_numericas]
-        .corr()
-        .reset_index()
-        .rename(columns={"level_1": "variable"})
+    # --- Calcular correlación por región ---
+    def calcular_correlacion_por_region(df, region):
+        subset = df[df["region"] == region]
+        corr = subset[columnas_numericas].corr().stack().reset_index()
+        corr.columns = ["Variable X", "Variable Y", "Correlación"]
+        corr["region"] = region
+        return corr
+
+    # Unir todas las correlaciones por región
+    region_corr = pd.concat(
+        [calcular_correlacion_por_region(df, r) for r in df["region"].unique()],
+        ignore_index=True
     )
 
     # --- Crear gráfico interactivo ---
@@ -390,13 +396,15 @@ with tab_explore:
         alt.Chart(region_corr)
         .mark_rect()
         .encode(
-            x=alt.X("level_1:N", title="Variable X"),
-            y=alt.Y("variable:N", title="Variable Y"),
-            color=alt.Color("value:Q", scale=alt.Scale(scheme="blueorange", domain=(-1, 1)), title="Correlación"),
+            x=alt.X("Variable X:N", title="Variable X"),
+            y=alt.Y("Variable Y:N", title="Variable Y"),
+            color=alt.Color("Correlación:Q",
+                        scale=alt.Scale(scheme="blueorange", domain=(-1, 1)),
+                        title="Correlación"),
             tooltip=[
-                "level_1:N",
-                "variable:N",
-                alt.Tooltip("value:Q", format=".2f"),
+                "Variable X:N",
+                "Variable Y:N",
+                alt.Tooltip("Correlación:Q", format=".2f"),
                 "region:N"
             ]
         )
@@ -407,6 +415,7 @@ with tab_explore:
             height=600,
             title="Matriz de correlación por región"
         )
+        .interactive()
     )
 
     st.altair_chart(corr_chart, use_container_width=True)
