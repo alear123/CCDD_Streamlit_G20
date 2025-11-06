@@ -227,11 +227,18 @@ if not df_hist.empty:
     df_hist["tipo"] = "Histórico"
     df_forecast["tipo"] = "Predicción"
     df_forecast_rename = df_forecast.rename(columns={"pred_dem": "dem"})
-    
+
+    # Concatenamos asegurando fechas válidas
+    df_hist["fecha"] = pd.to_datetime(df_hist["fecha"], errors="coerce")
+    df_forecast_rename["fecha"] = pd.to_datetime(df_forecast_rename["fecha"], errors="coerce")
+
     df_comb = pd.concat([
         df_hist[["fecha", "dem", "tipo"]],
         df_forecast_rename[["fecha", "dem", "tipo"]]
-    ]).sort_values("fecha")
+    ], ignore_index=True).dropna(subset=["fecha", "dem"])
+
+    # Ordenamos de forma segura
+    df_comb = df_comb.sort_values("fecha")
 
     # Gráfico combinado
     chart_comb = alt.Chart(df_comb).mark_line().encode(
@@ -244,6 +251,7 @@ if not df_hist.empty:
     st.altair_chart(chart_comb, use_container_width=True)
 else:
     st.info("No se encontraron datos históricos para la región seleccionada.")
+
 
 
 st.subheader("Temperatura vs Demanda")
