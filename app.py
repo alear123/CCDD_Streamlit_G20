@@ -282,28 +282,10 @@ if not df_hist.empty:
     )
 
     # Línea continua (histórico + predicción unidas)
-    line = base.mark_line(point=False, strokeWidth=2)
-
-    # Etiquetas al final de cada serie
-    text_labels = base.mark_text(
-        align="left",
-        dx=5,
-        dy=0,
-        fontSize=14,
-        fontWeight="bold"
-    ).encode(
-        text="tipo:N"
-    ).transform_aggregate(
-        max_fecha="max(fecha)",
-        groupby=["tipo"]
-    ).transform_lookup(
-        lookup="max_fecha",
-        from_=alt.LookupData(df_comb, "fecha", ["fecha", "dem", "tipo"])
-    )
-
-    chart_comb = (line + text_labels).interactive().properties(
+    chart_comb = base.mark_line(point=False, strokeWidth=2).interactive().properties(
         title="Demanda histórica y predicción combinadas"
     )
+
 
     st.altair_chart(chart_comb, use_container_width=True)
 
