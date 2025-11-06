@@ -173,7 +173,7 @@ def align_forecast(df_forecast, region_name):
 
 st.markdown(
     """
-    # ⚡ Predicción de Demanda Eléctrica por Región
+    #  Predicción de Demanda Eléctrica por Región
 
     Bienvenido a la herramienta de predicción de demanda eléctrica.  
     Esta aplicación permite:
@@ -197,7 +197,7 @@ if model is None:
 coords = REGION_COORDS[region]
 
 # === Crear pestañas ===
-tab_pred, tab_explore = st.tabs(["🔮 Predicción", "📊 Análisis Exploratorio"])
+tab_pred, tab_explore = st.tabs([" Predicción", " Análisis Exploratorio"])
 
 # =====================================================
 # === PESTAÑA 1: PREDICCIÓN ===========================
@@ -288,7 +288,7 @@ with tab_pred:
 
     # --- Descarga ---
     csv = df_forecast.to_csv(index=False)
-    st.download_button("📥 Descargar predicciones (CSV)", csv,
+    st.download_button(" Descargar predicciones (CSV)", csv,
                        file_name=f"predicciones_{region}.csv", mime="text/csv")
     st.success("Predicción completada correctamente.")
 
@@ -297,17 +297,84 @@ with tab_pred:
 # =====================================================
 with tab_explore:
     st.header("📊 Análisis Exploratorio de Datos (EDA)")
-    st.info("Aquí podrás explorar y visualizar tu dataset histórico o meteorológico.")
-    
-    st.write("➡️ En este apartado podrás cargar datos y generar visualizaciones interactivas "
-             "para entender relaciones entre variables, distribuciones, correlaciones, etc.")
-    
-    uploaded_file = st.file_uploader("Subí un archivo CSV para analizar", type=["csv"])
-    if uploaded_file:
-        df_uploaded = pd.read_csv(uploaded_file)
-        st.dataframe(df_uploaded.head())
-        st.write(f"**Filas:** {df_uploaded.shape[0]} | **Columnas:** {df_uploaded.shape[1]}")
-        
-        # Placeholder para futuros gráficos
-        st.subheader("📈 Visualización preliminar")
-        st.line_chart(df_uploaded.select_dtypes(include=np.number))
+    st.info("Explorá las relaciones entre variables climáticas y la demanda energética utilizando visualizaciones interactivas.")
+
+    # 📂 Cargar dataset directamente desde la carpeta del repositorio
+    df = pd.read_csv("dataset/datos_historicos.csv")  # Cambiá el nombre si tu CSV tiene otro nombre
+
+    st.write(f"**Filas:** {df.shape[0]} | **Columnas:** {df.shape[1]}")
+    st.dataframe(df.head())
+
+    # ===============================================
+    # 🔹 GRÁFICO 1: Temperatura vs Demanda por región
+    # ===============================================
+
+    import altair as alt
+    alt.data_transformers.disable_max_rows()
+
+    region_param = alt.param(
+        name='Región',
+        bind=alt.binding_select(
+            options=list(df['region'].unique()),
+            name='Región: '
+        ),
+        value=df['region'].unique()[0]
+    )
+
+    chart_temp_dem = (
+        alt.Chart(df)
+        .mark_circle(size=60, opacity=0.5)
+        .encode(
+            x=alt.X('temperature_2m:Q', title='Temperatura (°C)'),
+            y=alt.Y('dem:Q', title='Demanda energética'),
+            color=alt.Color('estacion:N', title='Estación'),
+            tooltip=['fecha:T', 'temperature_2m:Q', 'dem:Q', 'region:N', 'estacion']
+        )
+        .properties(
+            title='Relación entre temperatura y demanda energética por región',
+            width=600,
+            height=400
+        )
+        .add_params(region_param)
+        .transform_filter('datum.region == Región')
+        .interactive()
+    )
+
+    st.altair_chart(chart_temp_dem, use_container_width=True)
+
+    # ===============================================
+    # 🔹 GRÁFICO 2: Patrón horario promedio de la demanda por estación
+    # ===============================================
+
+    # Crear columna hora si no existe
+    if 'hora' not in df.columns:
+        df['hora'] = pd.to_datetime(df['fecha']).dt.hour
+
+    opciones = ['Todas'] + sorted(df['estacion'].unique().tolist())
+    estacion_param = alt.param(
+        name='Estación',
+        bind=alt.binding_select(options=opciones, name='Estación: '),
+        value='Todas'
+    )
+
+    base = alt.Chart(df).mark_line(point=True, interpolate='monotone').encode(
+        x=alt.X('hora:O', title='Hora del día'),
+        y=alt.Y('mean(dem):Q', title='Demanda promedio (MW)'),
+        color=alt.Color('estacion:N', title='Estación'),
+        tooltip=['hora', 'mean(dem):Q', 'estacion']
+    )
+
+    chart_horario = (
+        base
+        .add_params(estacion_param)
+        .transform_filter("(Estación == 'Todas') || (datum.estacion == Estación)")
+        .properties(
+            title='Patrón horario promedio de la demanda por estación',
+            width=700,
+            height=400
+        )
+        .interactive()
+    )
+
+    st.altair_chart(chart_horario, use_container_width=True)
+
