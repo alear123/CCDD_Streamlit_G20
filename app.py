@@ -237,8 +237,14 @@ if not df_hist.empty:
         df_forecast_rename[["fecha", "dem", "tipo"]]
     ], ignore_index=True).dropna(subset=["fecha", "dem"])
 
-    # Ordenamos de forma segura
-    df_comb = df_comb.sort_values("fecha")
+    # 🔒 Asegurar tipo uniforme antes de ordenar
+    df_comb["fecha"] = pd.to_datetime(df_comb["fecha"], errors="coerce")
+    df_comb = df_comb[df_comb["fecha"].notna()].copy()
+
+    try:
+        df_comb = df_comb.sort_values(by="fecha", key=lambda col: pd.to_datetime(col, errors="coerce"))
+    except Exception as e:
+        st.warning(f"No se pudo ordenar por fecha ({e}), se mostrará sin ordenar.")
 
     # Gráfico combinado
     chart_comb = alt.Chart(df_comb).mark_line().encode(
