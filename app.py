@@ -179,12 +179,12 @@ def fetch_historical_demand(region_name, days_back):
 def load_model(region, model_folder=MODEL_FOLDER):
     model_path = os.path.join(model_folder, f"model_{region}.pkl")
     if not os.path.exists(model_path):
-        st.error(f"❌ No se encontró el modelo para la región '{region}' en {model_path}")
+        st.error(f" No se encontró el modelo para la región '{region}' en {model_path}")
         return None
     try:
         return joblib.load(model_path)
     except Exception as e:
-        st.error(f"❌ Error al cargar el modelo: {e}")
+        st.error(f" Error al cargar el modelo: {e}")
         return None
 
 def fetch_open_meteo_forecast(lat, lon, timezone="America/Argentina/Buenos_Aires", forecast_days=7):
@@ -236,7 +236,7 @@ def align_forecast(df_forecast, region_name):
 # Header principal mejorado
 st.markdown("""
     <div class="main-header">
-        <h1>⚡ Predicción de Demanda Eléctrica</h1>
+        <h1> Predicción de Demanda Eléctrica</h1>
         <p>Sistema inteligente de pronóstico para regiones de Buenos Aires y La Plata</p>
     </div>
 """, unsafe_allow_html=True)
@@ -244,17 +244,17 @@ st.markdown("""
 # Sidebar mejorado
 with st.sidebar:
     st.image("https://cdn-icons-png.flaticon.com/512/1397/1397898.png", width=100)
-    st.title("⚙️ Configuración")
+    st.title(" Configuración")
     st.markdown("---")
     
     region = st.selectbox(
-        "🗺️ Región",
+        " Región",
         list(REGION_COORDS.keys()),
         format_func=lambda x: REGION_COORDS[x]["nombre"]
     )
     
     forecast_days = st.slider(
-        "📅 Días a predecir",
+        " Días a predecir",
         min_value=1,
         max_value=14,
         value=7,
@@ -262,7 +262,7 @@ with st.sidebar:
     )
     
     st.markdown("---")
-    st.markdown("### 📊 Información")
+    st.markdown("###  Información")
     st.info(f"""
     **Región:** {REGION_COORDS[region]["nombre"]}  
     **Coordenadas:** {REGION_COORDS[region]["lat"]}, {REGION_COORDS[region]["lon"]}  
@@ -276,57 +276,57 @@ if model is None:
 coords = REGION_COORDS[region]
 
 # Tabs mejoradas
-tab_pred, tab_explore = st.tabs(["📈 Predicción y Análisis", "🔍 Análisis Exploratorio"])
+tab_pred, tab_explore = st.tabs([" Predicción y Análisis", "🔍 Análisis Exploratorio"])
 
 # =====================================================
 # PESTAÑA 1: PREDICCIÓN
 # =====================================================
 with tab_pred:
-    with st.spinner("🌤️ Obteniendo pronóstico meteorológico..."):
+    with st.spinner(" Obteniendo pronóstico meteorológico..."):
         df_forecast = fetch_open_meteo_forecast(coords["lat"], coords["lon"], forecast_days=forecast_days)
 
     df_forecast_aligned = align_forecast(df_forecast, region)
 
-    with st.spinner("📊 Obteniendo datos históricos de CAMMESA..."):
+    with st.spinner(" Obteniendo datos históricos de CAMMESA..."):
         df_hist = fetch_historical_demand(region, days_back=forecast_days) 
 
-    with st.spinner("🤖 Generando predicciones con IA..."):
+    with st.spinner(" Generando predicciones"):
         df_forecast["pred_dem"] = model.predict(df_forecast_aligned)
 
     # Métricas destacadas
-    st.markdown("### 📊 Resumen Ejecutivo")
+    st.markdown("###  Resumen ")
     col1, col2, col3, col4 = st.columns(4)
     
     with col1:
         st.metric(
-            "🔺 Demanda Máxima",
+            " Demanda Máxima",
             f"{df_forecast['pred_dem'].max():.0f} MW",
             delta=f"{((df_forecast['pred_dem'].max() - df_forecast['pred_dem'].mean()) / df_forecast['pred_dem'].mean() * 100):.1f}%"
         )
     
     with col2:
         st.metric(
-            "🔻 Demanda Mínima",
+            " Demanda Mínima",
             f"{df_forecast['pred_dem'].min():.0f} MW",
             delta=f"-{((df_forecast['pred_dem'].mean() - df_forecast['pred_dem'].min()) / df_forecast['pred_dem'].mean() * 100):.1f}%"
         )
     
     with col3:
         st.metric(
-            "📊 Promedio",
+            " Promedio",
             f"{df_forecast['pred_dem'].mean():.0f} MW"
         )
     
     with col4:
         st.metric(
-            "🌡️ Temp. Promedio",
+            " Temp. Promedio",
             f"{df_forecast['temperature_2m'].mean():.1f}°C"
         )
 
     st.markdown("---")
 
     # Gráfico principal combinado
-    st.markdown("### 📈 Demanda Histórica y Predicción")
+    st.markdown("###  Demanda Histórica y Predicción")
     
     df_hist["fecha"] = pd.to_datetime(df_hist["fecha"], errors="coerce")
     df_hist = (
@@ -380,13 +380,13 @@ with tab_pred:
 
         st.altair_chart(chart_comb, use_container_width=True)
     else:
-        st.info("ℹ️ No se encontraron datos históricos para la región seleccionada.")
+        st.info(" No se encontraron datos históricos para la región seleccionada.")
 
     # Dos columnas para gráficos adicionales
     col_left, col_right = st.columns(2)
     
     with col_left:
-        st.markdown("### 🌡️ Temperatura vs Demanda")
+        st.markdown("###  Temperatura vs Demanda")
         
         df_forecast['hora'] = df_forecast['fecha'].dt.hour
         
@@ -417,7 +417,7 @@ with tab_pred:
         st.altair_chart(chart_combined, use_container_width=True)
     
     with col_right:
-        st.markdown("### ⏰ Distribución Horaria")
+        st.markdown("### Distribución Horaria")
         
         chart_box = alt.Chart(df_forecast).mark_boxplot(
             extent='min-max',
@@ -437,14 +437,14 @@ with tab_pred:
     with col_btn2:
         csv = df_forecast.to_csv(index=False)
         st.download_button(
-            "📥 Descargar Predicciones Completas",
+            " Descargar Predicciones Completas",
             csv,
             file_name=f"predicciones_{region}_{datetime.now().strftime('%Y%m%d')}.csv",
             mime="text/csv",
             use_container_width=True
         )
     
-    st.success("✅ Predicción completada correctamente")
+    st.success(" Predicción completada correctamente")
 
 # =====================================================
 # PESTAÑA 2: ANÁLISIS EXPLORATORIO
@@ -452,8 +452,8 @@ with tab_pred:
 with tab_explore:
     alt.data_transformers.disable_max_rows()
 
-    st.markdown("## 🔍 Análisis Exploratorio de Datos")
-    st.info("💡 Explora las relaciones entre variables climáticas y la demanda energética con visualizaciones interactivas.")
+    st.markdown("##  Análisis Exploratorio de Datos")
+    st.info(" Explora las relaciones entre variables climáticas y la demanda energética con visualizaciones interactivas.")
 
     df = pd.read_csv("dataset/master_energy_preprocessed.csv")
     df["fecha"] = pd.to_datetime(df["fecha"])
@@ -461,7 +461,7 @@ with tab_explore:
         df["hora"] = df["fecha"].dt.hour
 
     # Gráfico 1: Temperatura vs Demanda
-    st.markdown("### 🌡️ Temperatura vs Demanda Energética")
+    st.markdown("###  Temperatura vs Demanda Energética")
     
     region_param = alt.param(
         name='Región',
@@ -510,7 +510,7 @@ with tab_explore:
     st.markdown("---")
 
     # Gráfico 2: Patrón horario
-    st.markdown("### ⏰ Patrón Horario de la Demanda")
+    st.markdown("###  Patrón Horario de la Demanda")
 
     region_param_hora = alt.param(
         name='RegiónHora',
@@ -554,7 +554,7 @@ with tab_explore:
     st.markdown("---")
 
     # Gráfico 3: Viento vs Demanda
-    st.markdown("### 🌬️ Velocidad del Viento vs Demanda")
+    st.markdown("###  Velocidad del Viento vs Demanda")
 
     region_param_viento = alt.param(
         name='RegiónViento',
@@ -604,7 +604,7 @@ with tab_explore:
 st.markdown("---")
 st.markdown("""
     <div style='text-align: center; color: #666; padding: 1rem;'>
-        <p>⚡ Sistema de Predicción de Demanda Eléctrica | Powered by Machine Learning</p>
+        <p> Sistema de Predicción de Demanda Eléctrica | Powered by Machine Learning</p>
         <p style='font-size: 0.9rem;'>Datos provistos por CAMMESA y Open-Meteo</p>
     </div>
 """, unsafe_allow_html=True)
