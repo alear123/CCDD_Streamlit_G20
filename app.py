@@ -173,7 +173,7 @@ def align_forecast(df_forecast, region_name):
 
 st.markdown(
     """
-    #  Predicción de Demanda Eléctrica por Región
+    # ⚡ Predicción de Demanda Eléctrica por Región
 
     Bienvenido a la herramienta de predicción de demanda eléctrica.  
     Esta aplicación permite:
@@ -182,144 +182,132 @@ st.markdown(
     - Visualizar la relación entre temperatura y demanda.
     - Consultar la importancia de las variables que influyen en la predicción.
     - Descargar los resultados para análisis posterior.
-
-    **Cómo usarla:**
-    1. Selecciona la región y los días a predecir en la barra lateral.
-    2. Visualiza los gráficos y la tabla de predicciones.
-    3. Descarga los resultados si lo deseas.
-
-     Esta herramienta utiliza modelos de aprendizaje automático entrenados con datos históricos y pronósticos meteorológicos.
     """
 )
 
+# === Barra lateral ===
 st.sidebar.title("Configuración")
 region = st.sidebar.selectbox("Selecciona la región:", list(REGION_COORDS.keys()))
 forecast_days = st.sidebar.slider("Días a predecir:", 1, 14, 7)
+
 model = load_model(region)
 if model is None:
     st.stop()
 
 coords = REGION_COORDS[region]
-with st.spinner("Obteniendo pronóstico meteorológico..."):
-    df_forecast = fetch_open_meteo_forecast(coords["lat"], coords["lon"], forecast_days=forecast_days)
 
-df_forecast_aligned = align_forecast(df_forecast, region)
+# === Crear pestañas ===
+tab_pred, tab_explore = st.tabs(["🔮 Predicción", "📊 Análisis Exploratorio"])
 
-with st.spinner("Obteniendo datos históricos de CAMMESA..."):
-    df_hist = fetch_historical_demand(region, days_back=forecast_days) 
+# =====================================================
+# === PESTAÑA 1: PREDICCIÓN ===========================
+# =====================================================
+with tab_pred:
+    with st.spinner("Obteniendo pronóstico meteorológico..."):
+        df_forecast = fetch_open_meteo_forecast(coords["lat"], coords["lon"], forecast_days=forecast_days)
 
+    df_forecast_aligned = align_forecast(df_forecast, region)
 
+    with st.spinner("Obteniendo datos históricos de CAMMESA..."):
+        df_hist = fetch_historical_demand(region, days_back=forecast_days) 
 
+    with st.spinner("Generando predicciones..."):
+        df_forecast["pred_dem"] = model.predict(df_forecast_aligned)
 
-with st.spinner("Generando predicciones..."):
-    df_forecast["pred_dem"] = model.predict(df_forecast_aligned)
+    st.subheader(f"Resumen de la demanda para '{region}'")
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Máx. demanda", f"{df_forecast['pred_dem'].max():.2f} MW")
+    col2.metric("Mín. demanda", f"{df_forecast['pred_dem'].min():.2f} MW")
+    col3.metric("Promedio", f"{df_forecast['pred_dem'].mean():.2f} MW")
 
-st.subheader(f"Resumen de la demanda para '{region}'")
-col1, col2, col3 = st.columns(3)
-col1.metric("Máx. demanda", f"{df_forecast['pred_dem'].max():.2f} MW")
-col2.metric("Mín. demanda", f"{df_forecast['pred_dem'].min():.2f} MW")
-col3.metric("Demanda promedio", f"{df_forecast['pred_dem'].mean():.2f} MW")
-
-# 🧩 Ajustar la frecuencia de la demanda histórica a horaria
-df_hist = df_hist.copy()
-df_hist["fecha"] = pd.to_datetime(df_hist["fecha"], errors="coerce")
-df_hist = (
-    df_hist.set_index("fecha")
-    .resample("1H")  # promedia cada hora
-    .mean(numeric_only=True)
-    .dropna(subset=["dem"])
-    .reset_index()
-)
-st.subheader("Demanda histórica y predicción combinadas")
-
-if not df_hist.empty:
-    # Verificar que el modelo haya generado predicciones
-    if "pred_dem" not in df_forecast.columns:
-        with st.spinner("Generando predicciones..."):
-            df_forecast["pred_dem"] = model.predict(df_forecast_aligned)
-
-    # Crear DataFrames etiquetados
-    df_hist["tipo"] = "Histórico"
-    df_forecast_rename = df_forecast.rename(columns={"pred_dem": "dem"}).copy()
-    df_forecast_rename["tipo"] = "Predicción"
-
-    # Unir ambos asegurando fechas válidas
+    # --- Demanda histórica y predicción combinadas ---
     df_hist["fecha"] = pd.to_datetime(df_hist["fecha"], errors="coerce")
-    # Alinear forecast para que empiece justo después del último dato histórico
+    df_hist = (
+        df_hist.set_index("fecha")
+        .resample("1H")
+        .mean(numeric_only=True)
+        .dropna(subset=["dem"])
+        .reset_index()
+    )
+
     if not df_hist.empty:
+        df_hist["tipo"] = "Histórico"
+        df_forecast_rename = df_forecast.rename(columns={"pred_dem": "dem"}).copy()
+        df_forecast_rename["tipo"] = "Predicción"
+
         last_hist_date = df_hist["fecha"].max()
         forecast_start = last_hist_date + timedelta(hours=1)
-        # reindexar el forecast para que arranque después del histórico
         df_forecast_rename = df_forecast_rename.sort_values("fecha").reset_index(drop=True)
         df_forecast_rename["fecha"] = [
             forecast_start + timedelta(hours=i)
             for i in range(len(df_forecast_rename))
         ]
 
+        df_comb = pd.concat(
+            [df_hist[["fecha", "dem", "tipo"]], df_forecast_rename[["fecha", "dem", "tipo"]]],
+            ignore_index=True
+        ).dropna(subset=["fecha", "dem"])
 
-    df_comb = pd.concat(
-        [df_hist[["fecha", "dem", "tipo"]], df_forecast_rename[["fecha", "dem", "tipo"]]],
-        ignore_index=True
-    ).dropna(subset=["fecha", "dem"])
+        base = alt.Chart(df_comb).encode(
+            x=alt.X("fecha:T", title="Fecha"),
+            y=alt.Y("dem:Q", title="Demanda (MW)"),
+            color=alt.Color("tipo:N", title="Tipo de datos",
+                            scale=alt.Scale(domain=["Histórico", "Predicción"],
+                                            range=["gray", "blue"])),
+            tooltip=["fecha:T", "dem:Q", "tipo:N"]
+        )
 
-    # Asegurar tipo uniforme antes de ordenar
-    df_comb["fecha"] = pd.to_datetime(df_comb["fecha"], errors="coerce")
-    df_comb = df_comb[df_comb["fecha"].notna()].copy()
+        chart_comb = base.mark_line(point=False, strokeWidth=2).interactive().properties(
+            title="Demanda histórica y predicción combinadas"
+        )
 
-    try:
-        df_comb = df_comb.sort_values(by="fecha", key=lambda col: pd.to_datetime(col, errors="coerce"))
-    except Exception as e:
-        st.warning(f"No se pudo ordenar por fecha ({e}), se mostrará sin ordenar.")
+        st.altair_chart(chart_comb, use_container_width=True)
+    else:
+        st.info("No se encontraron datos históricos para la región seleccionada.")
 
-        # Gráfico combinado (histórico + predicción)
-    base = alt.Chart(df_comb).encode(
-        x=alt.X("fecha:T", title="Fecha"),
-        y=alt.Y("dem:Q", title="Demanda (MW)"),
-        color=alt.Color("tipo:N", title="Tipo de datos",
-                        scale=alt.Scale(domain=["Histórico", "Predicción"],
-                                        range=["gray", "blue"])),
-        tooltip=["fecha:T", "dem:Q", "tipo:N"]
-    )
+    # --- Temperatura vs Demanda ---
+    st.subheader("Temperatura vs Demanda")
+    chart2 = alt.layer(
+        alt.Chart(df_forecast).mark_line(color="orange").encode(
+            x="fecha:T", y="temperature_2m:Q", tooltip=["fecha","temperature_2m"]
+        ),
+        alt.Chart(df_forecast).mark_line(color="blue").encode(
+            x="fecha:T", y="pred_dem:Q", tooltip=["fecha","pred_dem"]
+        )
+    ).resolve_scale(y="independent").interactive()
+    st.altair_chart(chart2, use_container_width=True)
 
-    # Línea continua (histórico + predicción unidas)
-    chart_comb = base.mark_line(point=False, strokeWidth=2).interactive().properties(
-        title="Demanda histórica y predicción combinadas"
-    )
-
-
-    st.altair_chart(chart_comb, use_container_width=True)
-
-
-else:
-    st.info("No se encontraron datos históricos para la región seleccionada.")
-
-
-
-
-st.subheader("Temperatura vs Demanda")
-chart2 = alt.layer(
-    alt.Chart(df_forecast).mark_line(color="orange").encode(
-        x="fecha:T", y="temperature_2m:Q", tooltip=["fecha","temperature_2m"]
-    ),
-    alt.Chart(df_forecast).mark_line(color="blue").encode(
-        x="fecha:T", y="pred_dem:Q", tooltip=["fecha","pred_dem"]
-    )
-).resolve_scale(y="independent").interactive()
-st.altair_chart(chart2, use_container_width=True)
-
-st.subheader(f"Distribución horaria de demanda para '{region}'")
-try:
+    # --- Distribución horaria ---
+    st.subheader(f"Distribución horaria de demanda para '{region}'")
     df_forecast['hora'] = df_forecast['fecha'].dt.hour
     chart_box = alt.Chart(df_forecast).mark_boxplot(extent='min-max').encode(
         x=alt.X("hora:O", title="Hora del día"),
-        y=alt.Y("pred_dem:Q", title="Demanda (MW)"),
-        tooltip=["hora", "pred_dem"]
+        y=alt.Y("pred_dem:Q", title="Demanda (MW)")
     ).properties(height=400)
     st.altair_chart(chart_box, use_container_width=True)
-except Exception as e:
-    st.warning(f"No se pudo mostrar el gráfico de distribución: {e}")
 
-csv = df_forecast.to_csv(index=False)
-st.download_button(" Descargar predicciones (CSV)", csv,
-                   file_name=f"predicciones_{region}.csv", mime="text/csv")
-st.success(" Predicción completada correctamente.")
+    # --- Descarga ---
+    csv = df_forecast.to_csv(index=False)
+    st.download_button("📥 Descargar predicciones (CSV)", csv,
+                       file_name=f"predicciones_{region}.csv", mime="text/csv")
+    st.success("Predicción completada correctamente.")
+
+# =====================================================
+# === PESTAÑA 2: ANÁLISIS EXPLORATORIO ===============
+# =====================================================
+with tab_explore:
+    st.header("📊 Análisis Exploratorio de Datos (EDA)")
+    st.info("Aquí podrás explorar y visualizar tu dataset histórico o meteorológico.")
+    
+    st.write("➡️ En este apartado podrás cargar datos y generar visualizaciones interactivas "
+             "para entender relaciones entre variables, distribuciones, correlaciones, etc.")
+    
+    uploaded_file = st.file_uploader("Subí un archivo CSV para analizar", type=["csv"])
+    if uploaded_file:
+        df_uploaded = pd.read_csv(uploaded_file)
+        st.dataframe(df_uploaded.head())
+        st.write(f"**Filas:** {df_uploaded.shape[0]} | **Columnas:** {df_uploaded.shape[1]}")
+        
+        # Placeholder para futuros gráficos
+        st.subheader("📈 Visualización preliminar")
+        st.line_chart(df_uploaded.select_dtypes(include=np.number))
