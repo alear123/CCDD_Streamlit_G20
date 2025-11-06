@@ -359,11 +359,12 @@ with tab_explore:
 
     st.altair_chart(chart_temp_dem, use_container_width=True)
 
-    # ========================================================
+        # ========================================================
     # 🔹 GRÁFICO: Matriz de correlación interactiva
     # ========================================================
     st.subheader("📈 Matriz de correlación interactiva")
 
+    # --- Selector de región dinámico ---
     region_param_corr = alt.param(
         name='RegiónCorr',
         bind=alt.binding_select(
@@ -373,28 +374,31 @@ with tab_explore:
         value=df['region'].unique()[0]
     )
 
-    # Crear matriz de correlación por región
-    corr_base = (
-        alt.Chart(df)
-        .transform_filter("datum.region == RegiónCorr")
-        .transform_window(index="count()")
-        .transform_pivot(
-            "variable", "value", groupby=["index"]
-        )
+    # --- Obtener variables numéricas ---
+    columnas_numericas = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
+
+    # --- Calcular correlación por región (preprocesado en pandas) ---
+    region_corr = (
+        df.groupby("region")[columnas_numericas]
+        .corr()
+        .reset_index()
+        .rename(columns={"level_1": "variable"})
     )
 
-    # Calcular correlaciones dinámicamente con pandas antes del gráfico
-    region_corr = df.groupby("region")[columnas_numericas].corr().reset_index()
-    region_corr = region_corr.rename(columns={"level_1": "variable"})
-
+    # --- Crear gráfico interactivo ---
     corr_chart = (
         alt.Chart(region_corr)
         .mark_rect()
         .encode(
-            x=alt.X("level_0:N", title="Variable X"),
+            x=alt.X("level_1:N", title="Variable X"),
             y=alt.Y("variable:N", title="Variable Y"),
             color=alt.Color("value:Q", scale=alt.Scale(scheme="blueorange", domain=(-1, 1)), title="Correlación"),
-            tooltip=["level_0:N", "variable:N", alt.Tooltip("value:Q", format=".2f"), "region:N"]
+            tooltip=[
+                "level_1:N",
+                "variable:N",
+                alt.Tooltip("value:Q", format=".2f"),
+                "region:N"
+            ]
         )
         .add_params(region_param_corr)
         .transform_filter("datum.region == RegiónCorr")
