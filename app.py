@@ -245,7 +245,17 @@ if not df_hist.empty:
 
     # Unir ambos asegurando fechas válidas
     df_hist["fecha"] = pd.to_datetime(df_hist["fecha"], errors="coerce")
-    df_forecast_rename["fecha"] = pd.to_datetime(df_forecast_rename["fecha"], errors="coerce")
+    # Alinear forecast para que empiece justo después del último dato histórico
+    if not df_hist.empty:
+        last_hist_date = df_hist["fecha"].max()
+        forecast_start = last_hist_date + timedelta(hours=1)
+        # reindexar el forecast para que arranque después del histórico
+        df_forecast_rename = df_forecast_rename.sort_values("fecha").reset_index(drop=True)
+        df_forecast_rename["fecha"] = [
+            forecast_start + timedelta(hours=i)
+            for i in range(len(df_forecast_rename))
+        ]
+
 
     df_comb = pd.concat(
         [df_hist[["fecha", "dem", "tipo"]], df_forecast_rename[["fecha", "dem", "tipo"]]],
