@@ -223,21 +223,26 @@ col3.metric("Demanda promedio", f"{df_forecast['pred_dem'].mean():.2f} MW")
 st.subheader("Demanda histórica y predicción combinadas")
 
 if not df_hist.empty:
-    # Creamos un DataFrame unificado
-    df_hist["tipo"] = "Histórico"
-    df_forecast["tipo"] = "Predicción"
-    df_forecast_rename = df_forecast.rename(columns={"pred_dem": "dem"})
+    # Verificar que el modelo haya generado predicciones
+    if "pred_dem" not in df_forecast.columns:
+        with st.spinner("Generando predicciones..."):
+            df_forecast["pred_dem"] = model.predict(df_forecast_aligned)
 
-    # Concatenamos asegurando fechas válidas
+    # Crear DataFrames etiquetados
+    df_hist["tipo"] = "Histórico"
+    df_forecast_rename = df_forecast.rename(columns={"pred_dem": "dem"}).copy()
+    df_forecast_rename["tipo"] = "Predicción"
+
+    # Unir ambos asegurando fechas válidas
     df_hist["fecha"] = pd.to_datetime(df_hist["fecha"], errors="coerce")
     df_forecast_rename["fecha"] = pd.to_datetime(df_forecast_rename["fecha"], errors="coerce")
 
-    df_comb = pd.concat([
-        df_hist[["fecha", "dem", "tipo"]],
-        df_forecast_rename[["fecha", "dem", "tipo"]]
-    ], ignore_index=True).dropna(subset=["fecha", "dem"])
+    df_comb = pd.concat(
+        [df_hist[["fecha", "dem", "tipo"]], df_forecast_rename[["fecha", "dem", "tipo"]]],
+        ignore_index=True
+    ).dropna(subset=["fecha", "dem"])
 
-    # 🔒 Asegurar tipo uniforme antes de ordenar
+    # Asegurar tipo uniforme antes de ordenar
     df_comb["fecha"] = pd.to_datetime(df_comb["fecha"], errors="coerce")
     df_comb = df_comb[df_comb["fecha"].notna()].copy()
 
@@ -246,7 +251,7 @@ if not df_hist.empty:
     except Exception as e:
         st.warning(f"No se pudo ordenar por fecha ({e}), se mostrará sin ordenar.")
 
-    # Gráfico combinado
+    # Gráfico combinado (histórico + predicción)
     chart_comb = alt.Chart(df_comb).mark_line().encode(
         x="fecha:T",
         y=alt.Y("dem:Q", title="Demanda (MW)"),
@@ -255,8 +260,10 @@ if not df_hist.empty:
     ).interactive()
 
     st.altair_chart(chart_comb, use_container_width=True)
+
 else:
     st.info("No se encontraron datos históricos para la región seleccionada.")
+
 
 
 
