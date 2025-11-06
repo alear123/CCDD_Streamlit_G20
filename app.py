@@ -271,29 +271,42 @@ if not df_hist.empty:
     except Exception as e:
         st.warning(f"No se pudo ordenar por fecha ({e}), se mostrará sin ordenar.")
 
-    # Gráfico combinado (histórico + predicción)
         # Gráfico combinado (histórico + predicción)
     base = alt.Chart(df_comb).encode(
         x=alt.X("fecha:T", title="Fecha"),
         y=alt.Y("dem:Q", title="Demanda (MW)"),
+        color=alt.Color("tipo:N", title="Tipo de datos",
+                        scale=alt.Scale(domain=["Histórico", "Predicción"],
+                                        range=["gray", "blue"])),
         tooltip=["fecha:T", "dem:Q", "tipo:N"]
     )
 
-    # Línea gris continua (histórico)
-    hist_line = base.transform_filter(
-        alt.datum.tipo == "Histórico"
-    ).mark_line(color="gray", strokeWidth=2)
+    # Línea continua (histórico + predicción unidas)
+    line = base.mark_line(point=False, strokeWidth=2)
 
-    # Línea azul punteada (predicción)
-    pred_line = base.transform_filter(
-        alt.datum.tipo == "Predicción"
-    ).mark_line(color="blue", strokeDash=[5, 5], strokeWidth=2)
+    # Etiquetas al final de cada serie
+    text_labels = base.mark_text(
+        align="left",
+        dx=5,
+        dy=0,
+        fontSize=14,
+        fontWeight="bold"
+    ).encode(
+        text="tipo:N"
+    ).transform_aggregate(
+        max_fecha="max(fecha)",
+        groupby=["tipo"]
+    ).transform_lookup(
+        lookup="max_fecha",
+        from_=alt.LookupData(df_comb, "fecha", ["fecha", "dem", "tipo"])
+    )
 
-    chart_comb = (hist_line + pred_line).interactive()
+    chart_comb = (line + text_labels).interactive().properties(
+        title="Demanda histórica y predicción combinadas"
+    )
+
     st.altair_chart(chart_comb, use_container_width=True)
 
-
-    st.altair_chart(chart_comb, use_container_width=True)
 
 else:
     st.info("No se encontraron datos históricos para la región seleccionada.")
