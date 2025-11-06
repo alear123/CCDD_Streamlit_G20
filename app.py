@@ -300,7 +300,7 @@ with tab_explore:
     st.info("Explorá las relaciones entre variables climáticas y la demanda energética utilizando visualizaciones interactivas.")
 
     # 📂 Cargar dataset directamente desde la carpeta del repositorio
-    df = pd.read_csv("dataset/datos_historicos.csv")  # Cambiá el nombre si tu CSV tiene otro nombre
+    df = pd.read_csv("dataset/master_energy_preprocessed.csv")  # Cambiá el nombre si tu CSV tiene otro nombre
 
     st.write(f"**Filas:** {df.shape[0]} | **Columnas:** {df.shape[1]}")
     st.dataframe(df.head())
