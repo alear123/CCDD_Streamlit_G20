@@ -243,7 +243,6 @@ st.markdown("""
 
 # Sidebar mejorado
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/1397/1397898.png", width=100)
     st.title(" Configuración")
     st.markdown("---")
     
