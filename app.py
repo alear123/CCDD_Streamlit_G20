@@ -12,7 +12,7 @@ from datetime import datetime, timedelta
 st.set_page_config(
     layout="wide", 
     page_title="Predicción de Demanda Eléctrica",
-    page_icon="⚡",
+    page_icon="",
     initial_sidebar_state="expanded"
 )
 
@@ -239,7 +239,7 @@ st.markdown("""
         <h1> Predicción de Demanda Eléctrica</h1>
         <p>Sistema inteligente de pronóstico para regiones de Buenos Aires y La Plata</p>
     </div>
-""", unsafe_allow_html=True)
+""")
 
 # Sidebar mejorado
 with st.sidebar:
@@ -603,7 +603,7 @@ with tab_explore:
 st.markdown("---")
 st.markdown("""
     <div style='text-align: center; color: #666; padding: 1rem;'>
-        <p> Sistema de Predicción de Demanda Eléctrica | Powered by Machine Learning</p>
+        <p> Sistema de Predicción de Demanda Eléctrica </p>
         <p style='font-size: 0.9rem;'>Datos provistos por CAMMESA y Open-Meteo</p>
     </div>
 """, unsafe_allow_html=True)
