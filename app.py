@@ -220,6 +220,16 @@ col1.metric("Máx. demanda", f"{df_forecast['pred_dem'].max():.2f} MW")
 col2.metric("Mín. demanda", f"{df_forecast['pred_dem'].min():.2f} MW")
 col3.metric("Demanda promedio", f"{df_forecast['pred_dem'].mean():.2f} MW")
 
+# 🧩 Ajustar la frecuencia de la demanda histórica a horaria
+df_hist = df_hist.copy()
+df_hist["fecha"] = pd.to_datetime(df_hist["fecha"], errors="coerce")
+df_hist = (
+    df_hist.set_index("fecha")
+    .resample("1H")  # promedia cada hora
+    .mean(numeric_only=True)
+    .dropna(subset=["dem"])
+    .reset_index()
+)
 st.subheader("Demanda histórica y predicción combinadas")
 
 if not df_hist.empty:
