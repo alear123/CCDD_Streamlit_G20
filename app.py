@@ -296,85 +296,116 @@ with tab_pred:
 # === PESTAÑA 2: ANÁLISIS EXPLORATORIO ===============
 # =====================================================
 with tab_explore:
+    import altair as alt
+    alt.data_transformers.disable_max_rows()
+
     st.header("📊 Análisis Exploratorio de Datos (EDA)")
     st.info("Explorá las relaciones entre variables climáticas y la demanda energética utilizando visualizaciones interactivas.")
 
-    # 📂 Cargar dataset directamente desde la carpeta del repositorio
-    df = pd.read_csv("dataset/master_energy_preprocessed.csv")  # Cambiá el nombre si tu CSV tiene otro nombre
+    # 📂 Cargar dataset local
+    df = pd.read_csv("dataset/master_energy_preprocessed.csv")
+
+    # Conversión de fechas y columna hora
+    df["fecha"] = pd.to_datetime(df["fecha"])
+    if "hora" not in df.columns:
+        df["hora"] = df["fecha"].dt.hour
 
     st.write(f"**Filas:** {df.shape[0]} | **Columnas:** {df.shape[1]}")
     st.dataframe(df.head())
 
-    # ===============================================
-    # 🔹 GRÁFICO 1: Temperatura vs Demanda por región
-    # ===============================================
+    # ========================================================
+    # 🔹 FILTROS INTERACTIVOS
+    # ========================================================
+    st.sidebar.subheader("Filtros")
+    regiones = sorted(df["region"].unique().tolist())
+    estaciones = sorted(df["estacion"].unique().tolist())
 
-    import altair as alt
-    alt.data_transformers.disable_max_rows()
-
-    region_param = alt.param(
-        name='Región',
-        bind=alt.binding_select(
-            options=list(df['region'].unique()),
-            name='Región: '
-        ),
-        value=df['region'].unique()[0]
+    region_sel = st.sidebar.selectbox("🌍 Región", opciones := regiones)
+    estacion_sel = st.sidebar.multiselect("🌦 Estación", estaciones, default=estaciones)
+    fecha_min, fecha_max = df["fecha"].min(), df["fecha"].max()
+    rango_fechas = st.sidebar.slider(
+        "🗓 Rango de fechas",
+        min_value=fecha_min.to_pydatetime(),
+        max_value=fecha_max.to_pydatetime(),
+        value=(fecha_min.to_pydatetime(), fecha_max.to_pydatetime()),
+        format="YYYY-MM-DD"
     )
 
-    chart_temp_dem = (
-        alt.Chart(df)
-        .mark_circle(size=60, opacity=0.5)
+    # Aplicar filtros
+    df_filtrado = df[
+        (df["region"] == region_sel)
+        & (df["estacion"].isin(estacion_sel))
+        & (df["fecha"].between(rango_fechas[0], rango_fechas[1]))
+    ]
+
+    st.write(f"📍 Mostrando datos para **{region_sel}**, estaciones {', '.join(estacion_sel)} "
+             f"entre {rango_fechas[0].strftime('%Y-%m-%d')} y {rango_fechas[1].strftime('%Y-%m-%d')}")
+
+    # ========================================================
+    # 🔹 GRÁFICO 1: Dispersión seleccionable (exploración libre)
+    # ========================================================
+    st.subheader("🔍 Exploración de relaciones entre variables")
+
+    columnas_numericas = df.select_dtypes(include=["float64", "int64"]).columns.tolist()
+    x_var = st.selectbox("Variable en eje X", columnas_numericas, index=columnas_numericas.index("temperature_2m"))
+    y_var = st.selectbox("Variable en eje Y", columnas_numericas, index=columnas_numericas.index("dem"))
+
+    chart_disp = (
+        alt.Chart(df_filtrado)
+        .mark_circle(size=60, opacity=0.6)
         .encode(
-            x=alt.X('temperature_2m:Q', title='Temperatura (°C)'),
-            y=alt.Y('dem:Q', title='Demanda energética'),
-            color=alt.Color('estacion:N', title='Estación'),
-            tooltip=['fecha:T', 'temperature_2m:Q', 'dem:Q', 'region:N', 'estacion']
+            x=alt.X(f"{x_var}:Q", title=x_var),
+            y=alt.Y(f"{y_var}:Q", title=y_var),
+            color=alt.Color("estacion:N", title="Estación"),
+            tooltip=["fecha:T", "region:N", "estacion:N", f"{x_var}:Q", f"{y_var}:Q"]
         )
         .properties(
-            title='Relación entre temperatura y demanda energética por región',
-            width=600,
-            height=400
-        )
-        .add_params(region_param)
-        .transform_filter('datum.region == Región')
-        .interactive()
-    )
-
-    st.altair_chart(chart_temp_dem, use_container_width=True)
-
-    # ===============================================
-    # 🔹 GRÁFICO 2: Patrón horario promedio de la demanda por estación
-    # ===============================================
-
-    # Crear columna hora si no existe
-    if 'hora' not in df.columns:
-        df['hora'] = pd.to_datetime(df['fecha']).dt.hour
-
-    opciones = ['Todas'] + sorted(df['estacion'].unique().tolist())
-    estacion_param = alt.param(
-        name='Estación',
-        bind=alt.binding_select(options=opciones, name='Estación: '),
-        value='Todas'
-    )
-
-    base = alt.Chart(df).mark_line(point=True, interpolate='monotone').encode(
-        x=alt.X('hora:O', title='Hora del día'),
-        y=alt.Y('mean(dem):Q', title='Demanda promedio (MW)'),
-        color=alt.Color('estacion:N', title='Estación'),
-        tooltip=['hora', 'mean(dem):Q', 'estacion']
-    )
-
-    chart_horario = (
-        base
-        .add_params(estacion_param)
-        .transform_filter("(Estación == 'Todas') || (datum.estacion == Estación)")
-        .properties(
-            title='Patrón horario promedio de la demanda por estación',
+            title=f"Relación entre {x_var} y {y_var}",
             width=700,
             height=400
         )
         .interactive()
     )
+    st.altair_chart(chart_disp, use_container_width=True)
 
-    st.altair_chart(chart_horario, use_container_width=True)
+    # ========================================================
+    # 🔹 GRÁFICO 2: Evolución temporal de la demanda
+    # ========================================================
+    st.subheader("⏱ Evolución temporal de la demanda energética")
 
+    chart_linea = (
+        alt.Chart(df_filtrado)
+        .mark_line()
+        .encode(
+            x=alt.X("fecha:T", title="Fecha"),
+            y=alt.Y("dem:Q", title="Demanda (MW)"),
+            color=alt.Color("estacion:N", title="Estación"),
+            tooltip=["fecha:T", "dem:Q", "estacion:N"]
+        )
+        .properties(
+            width=700,
+            height=400,
+            title="Demanda energética a lo largo del tiempo"
+        )
+        .interactive()
+    )
+    st.altair_chart(chart_linea, use_container_width=True)
+
+    # ========================================================
+    # 🔹 GRÁFICO 3: Matriz de correlación
+    # ========================================================
+    st.subheader("📈 Correlación entre variables numéricas")
+
+    corr = df_filtrado[columnas_numericas].corr().reset_index().melt("index")
+    corr_chart = (
+        alt.Chart(corr)
+        .mark_rect()
+        .encode(
+            x=alt.X("index:N", title="Variable X"),
+            y=alt.Y("variable:N", title="Variable Y"),
+            color=alt.Color("value:Q", scale=alt.Scale(scheme="blueorange", domain=(-1, 1)), title="Correlación"),
+            tooltip=["index:N", "variable:N", alt.Tooltip("value:Q", format=".2f")]
+        )
+        .properties(width=600, height=600, title="Matriz de correlación")
+    )
+    st.altair_chart(corr_chart, use_container_width=True)
