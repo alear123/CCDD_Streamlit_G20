@@ -272,12 +272,26 @@ if not df_hist.empty:
         st.warning(f"No se pudo ordenar por fecha ({e}), se mostrará sin ordenar.")
 
     # Gráfico combinado (histórico + predicción)
-    chart_comb = alt.Chart(df_comb).mark_line().encode(
-        x="fecha:T",
+        # Gráfico combinado (histórico + predicción)
+    base = alt.Chart(df_comb).encode(
+        x=alt.X("fecha:T", title="Fecha"),
         y=alt.Y("dem:Q", title="Demanda (MW)"),
-        color=alt.Color("tipo:N", title="Tipo", scale=alt.Scale(domain=["Histórico", "Predicción"], range=["gray", "blue"])),
         tooltip=["fecha:T", "dem:Q", "tipo:N"]
-    ).interactive()
+    )
+
+    # Línea gris continua (histórico)
+    hist_line = base.transform_filter(
+        alt.datum.tipo == "Histórico"
+    ).mark_line(color="gray", strokeWidth=2)
+
+    # Línea azul punteada (predicción)
+    pred_line = base.transform_filter(
+        alt.datum.tipo == "Predicción"
+    ).mark_line(color="blue", strokeDash=[5, 5], strokeWidth=2)
+
+    chart_comb = (hist_line + pred_line).interactive()
+    st.altair_chart(chart_comb, use_container_width=True)
+
 
     st.altair_chart(chart_comb, use_container_width=True)
 
