@@ -276,7 +276,7 @@ if model is None:
 coords = REGION_COORDS[region]
 
 # Tabs mejoradas
-tab_pred, tab_explore = st.tabs([" Predicción y Análisis", "🔍 Análisis Exploratorio"])
+tab_pred, tab_explore = st.tabs([" Predicción y Análisis", " Análisis Exploratorio"])
 
 # =====================================================
 # PESTAÑA 1: PREDICCIÓN
