@@ -359,29 +359,54 @@ with tab_explore:
 
     st.altair_chart(chart_temp_dem, use_container_width=True)
 
-    st.subheader("Demanda promedio diaria y precipitación acumulada")
+    import pandas as pd
+    import altair as alt
 
-    region_sel2 = st.selectbox("Seleccionar región para precipitación", df["region"].unique(), key="precipitacion")
+    st.subheader("Importancia comparativa de features por región")
 
-    filtered2 = df[df["region"] == region_sel2].copy()
-    filtered2["fecha_dia"] = pd.to_datetime(filtered2["fecha"]).dt.date
+    # Crear el DataFrame
+    data_importancia = pd.DataFrame([
+        ["edelap", "estacion", 0.356758],
+        ["edelap", "precipitation", 0.235747],
+        ["edelap", "region", 0.119102],
+        ["edelap", "Feature_15", 0.087634],
+        ["edelap", "fin_de_semana", 0.058515],
+        ["edelap", "cloudcover", 0.033610],
+        ["edelap", "wind_speed_10m", 0.023083],
+        ["edelap", "relative_humidity_2m", 0.022750],
+        ["edelap", "wind_direction_10m", 0.019191],
+        ["edelap", "temperature_2m", 0.017366],
 
-    df_daily = filtered2.groupby("fecha_dia").agg({
-        "dem": "mean",
-        "precipitation": "sum"
-    }).reset_index()
+        ["edesur", "precipitation", 0.460801],
+        ["edesur", "region", 0.183850],
+        ["edesur", "fin_de_semana", 0.123912],
+        ["edesur", "relative_humidity_2m", 0.063795],
+        ["edesur", "estacion", 0.045571],
+        ["edesur", "cloudcover", 0.024136],
+        ["edesur", "Feature_11", 0.021432],
+        ["edesur", "wind_direction_10m", 0.017813],
+        ["edesur", "wind_speed_10m", 0.016968],
+        ["edesur", "temperature_2m", 0.015631],
 
-    linea_dem = alt.Chart(df_daily).mark_line(point=True).encode(
-        x=alt.X('fecha_dia:T', title='Fecha'),
-        y=alt.Y('dem:Q', title='Demanda promedio'),
-        color=alt.value('steelblue')
-    )
+        ["edenor", "precipitation", 0.518723],
+        ["edenor", "region", 0.170730],
+        ["edenor", "fin_de_semana", 0.111506],
+        ["edenor", "relative_humidity_2m", 0.055191],
+        ["edenor", "cloudcover", 0.029141],
+        ["edenor", "wind_speed_10m", 0.020845],
+        ["edenor", "Feature_11", 0.018913],
+        ["edenor", "wind_direction_10m", 0.018027],
+        ["edenor", "estacion", 0.016975],
+        ["edenor", "temperature_2m", 0.016231],
+    ], columns=["region", "feature", "importance"])
 
-    linea_prec = alt.Chart(df_daily).mark_line(point=True, strokeDash=[5,5]).encode(
-        x='fecha_dia:T',
-        y=alt.Y('precipitation:Q', title='Precipitación acumulada (mm)', axis=alt.Axis(titleColor='gray')),
-        color=alt.value('gray')
-    )
+    # Gráfico agrupado
+    chart = alt.Chart(data_importancia).mark_bar().encode(
+        x=alt.X('feature:N', sort='-y', title='Feature'),
+        y=alt.Y('importance:Q', title='Importancia'),
+        color=alt.Color('region:N', title='Región'),
+        tooltip=['region', 'feature', 'importance']
+    ).properties(height=400).interactive()
 
-    st.altair_chart(linea_dem + linea_prec, use_container_width=True)
+    st.altair_chart(chart, use_container_width=True)
 
