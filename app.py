@@ -359,18 +359,29 @@ with tab_explore:
 
     st.altair_chart(chart_temp_dem, use_container_width=True)
 
-    st.subheader("Relación entre temperatura y demanda según la estación")
+    st.subheader("Demanda promedio diaria y precipitación acumulada")
 
-    region_sel = st.selectbox("Seleccionar región", df["region"].unique())
+    region_sel2 = st.selectbox("Seleccionar región para precipitación", df["region"].unique(), key="precipitacion")
 
-    filtered = df[df["region"] == region_sel]
+    filtered2 = df[df["region"] == region_sel2].copy()
+    filtered2["fecha_dia"] = pd.to_datetime(filtered2["fecha"]).dt.date
 
-    chart_temp_dem = alt.Chart(filtered).mark_circle(size=60, opacity=0.5).encode(
-        x=alt.X('temperature_2m:Q', title='Temperatura (°C)'),
-        y=alt.Y('dem:Q', title='Demanda energética'),
-        color=alt.Color('estacion:N', title='Estación'),
-        tooltip=['fecha:T', 'temperature_2m:Q', 'dem:Q', 'estacion:N']
-    ).interactive()
+    df_daily = filtered2.groupby("fecha_dia").agg({
+        "dem": "mean",
+        "precipitation": "sum"
+    }).reset_index()
 
-    st.altair_chart(chart_temp_dem, use_container_width=True)
+    linea_dem = alt.Chart(df_daily).mark_line(point=True).encode(
+        x=alt.X('fecha_dia:T', title='Fecha'),
+        y=alt.Y('dem:Q', title='Demanda promedio'),
+        color=alt.value('steelblue')
+    )
+
+    linea_prec = alt.Chart(df_daily).mark_line(point=True, strokeDash=[5,5]).encode(
+        x='fecha_dia:T',
+        y=alt.Y('precipitation:Q', title='Precipitación acumulada (mm)', axis=alt.Axis(titleColor='gray')),
+        color=alt.value('gray')
+    )
+
+    st.altair_chart(linea_dem + linea_prec, use_container_width=True)
 
