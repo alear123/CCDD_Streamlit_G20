@@ -310,9 +310,6 @@ with tab_explore:
     if "hora" not in df.columns:
         df["hora"] = df["fecha"].dt.hour
 
-    st.write(f"**Filas:** {df.shape[0]} | **Columnas:** {df.shape[1]}")
-    st.dataframe(df.head())
-
     # ========================================================
     # 🔹 GRÁFICO 1: Temperatura vs Demanda (con selector de región y estación)
     # ========================================================
