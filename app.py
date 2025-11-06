@@ -50,7 +50,6 @@ st.markdown("""
     /* Mejorar las tarjetas */
     .stTabs [data-baseweb="tab-list"] {
         gap: 8px;
-        background-color: #f8f9fa;
         padding: 0.5rem;
         border-radius: 10px;
     }
@@ -239,7 +238,7 @@ st.markdown("""
         <h1> Predicción de Demanda Eléctrica</h1>
         <p>Sistema inteligente de pronóstico para regiones de Buenos Aires y La Plata</p>
     </div>
-""")
+""", unsafe_allow_html=True)
 
 # Sidebar mejorado
 with st.sidebar:
