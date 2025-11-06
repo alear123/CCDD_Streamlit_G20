@@ -360,63 +360,49 @@ with tab_explore:
     st.altair_chart(chart_temp_dem, use_container_width=True)
 
     # ========================================================
-    # 🔹 GRÁFICO 2: Patrón horario promedio de la demanda (por estación)
-    # ========================================================
-    st.subheader("🕒 Patrón horario promedio de la demanda energética")
-
-    estacion_param2 = alt.param(
-        name='Estación2',
-        bind=alt.binding_select(
-            options=['Todas'] + sorted(df['estacion'].unique().tolist()),
-            name='Estación: '
-        ),
-        value='Todas'
-    )
-
-    base = (
-        alt.Chart(df)
-        .mark_line(point=True, interpolate='monotone')
-        .encode(
-            x=alt.X('hora:O', title='Hora del día'),
-            y=alt.Y('mean(dem):Q', title='Demanda promedio (MW)'),
-            color=alt.Color('estacion:N', title='Estación'),
-            tooltip=['hora', 'mean(dem):Q', 'estacion']
-        )
-        .add_params(estacion_param2)
-        .transform_filter("(Estación2 == 'Todas') || (datum.estacion == Estación2)")
-        .properties(
-            title='Demanda promedio por hora del día según estación',
-            width=700,
-            height=400
-        )
-        .interactive()
-    )
-
-    st.altair_chart(base, use_container_width=True)
-
-    # ========================================================
-    # 🔹 GRÁFICO 3: Correlación (interactiva)
+    # 🔹 GRÁFICO: Matriz de correlación interactiva
     # ========================================================
     st.subheader("📈 Matriz de correlación interactiva")
 
-    columnas_numericas = df.select_dtypes(include=['float64', 'int64']).columns.tolist()
-    corr = df[columnas_numericas].corr().reset_index().melt('index')
+    region_param_corr = alt.param(
+        name='RegiónCorr',
+        bind=alt.binding_select(
+            options=list(df['region'].unique()),
+            name='Región: '
+        ),
+        value=df['region'].unique()[0]
+    )
+
+    # Crear matriz de correlación por región
+    corr_base = (
+        alt.Chart(df)
+        .transform_filter("datum.region == RegiónCorr")
+        .transform_window(index="count()")
+        .transform_pivot(
+            "variable", "value", groupby=["index"]
+        )
+    )
+
+    # Calcular correlaciones dinámicamente con pandas antes del gráfico
+    region_corr = df.groupby("region")[columnas_numericas].corr().reset_index()
+    region_corr = region_corr.rename(columns={"level_1": "variable"})
 
     corr_chart = (
-        alt.Chart(corr)
+        alt.Chart(region_corr)
         .mark_rect()
         .encode(
-            x=alt.X('index:N', title='Variable X'),
-            y=alt.Y('variable:N', title='Variable Y'),
-            color=alt.Color('value:Q', scale=alt.Scale(scheme='redblue', domain=(-1, 1)), title='Correlación'),
-            tooltip=['index:N', 'variable:N', alt.Tooltip('value:Q', format='.2f')]
+            x=alt.X("level_0:N", title="Variable X"),
+            y=alt.Y("variable:N", title="Variable Y"),
+            color=alt.Color("value:Q", scale=alt.Scale(scheme="blueorange", domain=(-1, 1)), title="Correlación"),
+            tooltip=["level_0:N", "variable:N", alt.Tooltip("value:Q", format=".2f"), "region:N"]
         )
+        .add_params(region_param_corr)
+        .transform_filter("datum.region == RegiónCorr")
         .properties(
             width=600,
             height=600,
-            title='Matriz de correlación entre variables numéricas'
+            title="Matriz de correlación por región"
         )
-        .interactive()
     )
 
     st.altair_chart(corr_chart, use_container_width=True)
