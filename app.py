@@ -467,51 +467,7 @@ with tab_explore:
 
     st.altair_chart(chart_viento, use_container_width=True)
 
-    st.write("---")
-
-    st.subheader("Precipitación vs Demanda Energética")
-
-    region_param_lluvia = alt.param(
-        name='RegiónLluvia',
-        bind=alt.binding_select(
-            options=list(df['region'].unique()),
-            name='Región: '
-        ),
-        value=df['region'].unique()[0]
-    )
-
-    estacion_param_lluvia = alt.param(
-        name='EstacionLluvia',
-        bind=alt.binding_select(
-            options=['Todas'] + sorted(df['estacion'].unique().tolist()),
-            name='Estación: '
-        ),
-        value='Todas'
-    )
-
-    chart_lluvia = (
-        alt.Chart(df)
-        .mark_circle(size=60, opacity=0.5)
-        .encode(
-            x=alt.X('precipitation:Q', title='Precipitación (mm)'),
-            y=alt.Y('dem:Q', title='Demanda energética (MW)'),
-            color=alt.Color('estacion:N', title='Estación'),
-            tooltip=[
-                alt.Tooltip('fecha:T', format='%d/%m/%Y %H:%M'),
-                alt.Tooltip('precipitation:Q', title='Precipitación (mm)', format='.2f'),
-                alt.Tooltip('dem:Q', title='Demanda (MW)', format='.2f'),
-                'region:N',
-                'estacion:N'
-            ]
-        )
-        .add_params(region_param_lluvia, estacion_param_lluvia)
-        .transform_filter("datum.region == RegiónLluvia")
-        .transform_filter("(EstacionLluvia == 'Todas') || (datum.estacion == EstacionLluvia)")
-        .properties(height=400)
-        .interactive()
-    )
-
-    st.altair_chart(chart_lluvia, use_container_width=True)
+    
 
 st.write("---")
 st.caption("Sistema de Predicción de Demanda Eléctrica - Datos provistos por CAMMESA y Open-Meteo")
