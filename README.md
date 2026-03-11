@@ -1,6 +1,8 @@
-# Energy Demand Predictor: Buenos Aires ⚡
+<img width="1919" height="845" alt="image" src="https://github.com/user-attachments/assets/37b183e7-4c39-44b3-9c20-7f0efa43292b" /># Energy Demand Predictor: Buenos Aires ⚡
 
 Este proyecto utiliza **Machine Learning** para predecir la demanda energética horaria en las regiones de **Edenor, Edesur y Edelap**. A través de la integración de datos históricos de **CAMMESA** y variables climáticas de **Open-Meteo**, el modelo permite optimizar la generación, reducir costos y prevenir sobrecargas en la red eléctrica.
+
+<img width="1918" height="845" alt="dag" src="https://github.com/user-attachments/assets/eb2accc0-94d9-4406-b67f-3acd15363af4" />
 
 ---
 
