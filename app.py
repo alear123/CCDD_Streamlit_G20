@@ -8,20 +8,6 @@ import os
 from sklearn.base import BaseEstimator, TransformerMixin
 from datetime import datetime, timedelta
 
-st.set_page_config(
-    layout="wide", 
-    page_title="Predicción de Demanda Eléctrica",
-    initial_sidebar_state="expanded"
-)
-
-REGION_COORDS = {
-    "edelap": {"lat": -34.921, "lon": -57.954, "nombre": "EDELAP - La Plata"},
-    "edesur": {"lat": -34.615, "lon": -58.425, "nombre": "EDESUR - Buenos Aires Sur"},
-    "edenor": {"lat": -34.567, "lon": -58.447, "nombre": "EDENOR - Buenos Aires Norte"}
-}
-
-MODEL_FOLDER = "models"
-
 class FeatureEngineerTemporal(BaseEstimator, TransformerMixin):
     def __init__(self, drop_original_fecha=True):
         self.drop_original_fecha = drop_original_fecha
@@ -44,6 +30,20 @@ class FeatureEngineerTemporal(BaseEstimator, TransformerMixin):
         if self.drop_original_fecha:
             df = df.drop(columns=['fecha'], errors='ignore')
         return df
+
+st.set_page_config(
+    layout="wide", 
+    page_title="Predicción de Demanda Eléctrica",
+    initial_sidebar_state="expanded"
+)
+
+REGION_COORDS = {
+    "edelap": {"lat": -34.921, "lon": -57.954, "nombre": "EDELAP - La Plata"},
+    "edesur": {"lat": -34.615, "lon": -58.425, "nombre": "EDESUR - Buenos Aires Sur"},
+    "edenor": {"lat": -34.567, "lon": -58.447, "nombre": "EDENOR - Buenos Aires Norte"}
+}
+
+MODEL_FOLDER = "models"
 
 def fetch_historical_demand(region_name, days_back):
     REGION_IDS = {
