@@ -131,21 +131,43 @@ def fetch_open_meteo_forecast(lat, lon, timezone="America/Argentina/Buenos_Aires
 
 def align_forecast(df_forecast, region_name):
     df = df_forecast.copy()
-    df['region'] = region_name
+    
+    # 1. Asegurar nombres de columnas y tipos básicos
+    df['region'] = str(region_name)
     df['estacion'] = df['fecha'].dt.month.map({
-        12:"verano",1:"verano",2:"verano",
-        3:"otoño",4:"otoño",5:"otoño",
-        6:"invierno",7:"invierno",8:"invierno",
-        9:"primavera",10:"primavera",11:"primavera"
+        12:"verano", 1:"verano", 2:"verano",
+        3:"otoño", 4:"otoño", 5:"otoño",
+        6:"invierno", 7:"invierno", 8:"invierno",
+        9:"primavera", 10:"primavera", 11:"primavera"
     })
+
     expected_cols = [
-        "fecha","cloudcover","pressure_msl","precipitation","temperature_2m",
-        "wind_speed_10m","wind_direction_10m","relative_humidity_2m",
-        "region","fin_de_semana","estacion"
+        "fecha", "cloudcover", "pressure_msl", "precipitation", "temperature_2m",
+        "wind_speed_10m", "wind_direction_10m", "relative_humidity_2m",
+        "region", "fin_de_semana", "estacion"
     ]
+
+    # 2. Rellenar faltantes con tipos coherentes
     for c in expected_cols:
         if c not in df.columns:
-            df[c] = 0.0
+            if c in ["region", "estacion"]:
+                df[c] = "missing"
+            else:
+                df[c] = 0.0
+
+    # 3. CRÍTICO: Castear tipos para evitar el error de sklearn
+    # Convertimos todas las numéricas a float64
+    cols_numericas = [
+        "cloudcover", "pressure_msl", "precipitation", "temperature_2m",
+        "wind_speed_10m", "wind_direction_10m", "relative_humidity_2m", "fin_de_semana"
+    ]
+    for col in cols_numericas:
+        df[col] = df[col].astype(float)
+
+    # Asegurar que las categóricas sean strings limpios
+    for col in ["region", "estacion"]:
+        df[col] = df[col].astype(str)
+
     return df[expected_cols]
 
 st.title("Predicción de Demanda Eléctrica")
