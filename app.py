@@ -8,6 +8,20 @@ import os
 from sklearn.base import BaseEstimator, TransformerMixin
 from datetime import datetime, timedelta
 
+st.set_page_config(
+    layout="wide", 
+    page_title="Predicción de Demanda Eléctrica",
+    initial_sidebar_state="expanded"
+)
+
+REGION_COORDS = {
+    "edelap": {"lat": -34.921, "lon": -57.954, "nombre": "EDELAP - La Plata"},
+    "edesur": {"lat": -34.615, "lon": -58.425, "nombre": "EDESUR - Buenos Aires Sur"},
+    "edenor": {"lat": -34.567, "lon": -58.447, "nombre": "EDENOR - Buenos Aires Norte"}
+}
+
+MODEL_FOLDER = "models"
+
 class FeatureEngineerTemporal(BaseEstimator, TransformerMixin):
     def __init__(self, drop_original_fecha=True):
         self.drop_original_fecha = drop_original_fecha
@@ -30,20 +44,6 @@ class FeatureEngineerTemporal(BaseEstimator, TransformerMixin):
         if self.drop_original_fecha:
             df = df.drop(columns=['fecha'], errors='ignore')
         return df
-
-st.set_page_config(
-    layout="wide", 
-    page_title="Predicción de Demanda Eléctrica",
-    initial_sidebar_state="expanded"
-)
-
-REGION_COORDS = {
-    "edelap": {"lat": -34.921, "lon": -57.954, "nombre": "EDELAP - La Plata"},
-    "edesur": {"lat": -34.615, "lon": -58.425, "nombre": "EDESUR - Buenos Aires Sur"},
-    "edenor": {"lat": -34.567, "lon": -58.447, "nombre": "EDENOR - Buenos Aires Norte"}
-}
-
-MODEL_FOLDER = "models"
 
 def fetch_historical_demand(region_name, days_back):
     REGION_IDS = {
@@ -131,43 +131,21 @@ def fetch_open_meteo_forecast(lat, lon, timezone="America/Argentina/Buenos_Aires
 
 def align_forecast(df_forecast, region_name):
     df = df_forecast.copy()
-    
-    # 1. Asegurar nombres de columnas y tipos básicos
-    df['region'] = str(region_name)
+    df['region'] = region_name
     df['estacion'] = df['fecha'].dt.month.map({
-        12:"verano", 1:"verano", 2:"verano",
-        3:"otoño", 4:"otoño", 5:"otoño",
-        6:"invierno", 7:"invierno", 8:"invierno",
-        9:"primavera", 10:"primavera", 11:"primavera"
+        12:"verano",1:"verano",2:"verano",
+        3:"otoño",4:"otoño",5:"otoño",
+        6:"invierno",7:"invierno",8:"invierno",
+        9:"primavera",10:"primavera",11:"primavera"
     })
-
     expected_cols = [
-        "fecha", "cloudcover", "pressure_msl", "precipitation", "temperature_2m",
-        "wind_speed_10m", "wind_direction_10m", "relative_humidity_2m",
-        "region", "fin_de_semana", "estacion"
+        "fecha","cloudcover","pressure_msl","precipitation","temperature_2m",
+        "wind_speed_10m","wind_direction_10m","relative_humidity_2m",
+        "region","fin_de_semana","estacion"
     ]
-
-    # 2. Rellenar faltantes con tipos coherentes
     for c in expected_cols:
         if c not in df.columns:
-            if c in ["region", "estacion"]:
-                df[c] = "missing"
-            else:
-                df[c] = 0.0
-
-    # 3. CRÍTICO: Castear tipos para evitar el error de sklearn
-    # Convertimos todas las numéricas a float64
-    cols_numericas = [
-        "cloudcover", "pressure_msl", "precipitation", "temperature_2m",
-        "wind_speed_10m", "wind_direction_10m", "relative_humidity_2m", "fin_de_semana"
-    ]
-    for col in cols_numericas:
-        df[col] = df[col].astype(float)
-
-    # Asegurar que las categóricas sean strings limpios
-    for col in ["region", "estacion"]:
-        df[col] = df[col].astype(str)
-
+            df[c] = 0.0
     return df[expected_cols]
 
 st.title("Predicción de Demanda Eléctrica")
@@ -213,9 +191,6 @@ with tab_pred:
         df_hist = fetch_historical_demand(region, days_back=forecast_days) 
 
     with st.spinner("Generando predicciones..."):
-        st.write("Estructura de datos enviada al modelo:")
-        st.write(df_forecast_aligned.dtypes)
-        st.write(df_forecast_aligned.head(1))
         df_forecast["pred_dem"] = model.predict(df_forecast_aligned)
 
     st.subheader("Resumen")
