@@ -191,6 +191,9 @@ with tab_pred:
         df_hist = fetch_historical_demand(region, days_back=forecast_days) 
 
     with st.spinner("Generando predicciones..."):
+        st.write("Estructura de datos enviada al modelo:")
+        st.write(df_forecast_aligned.dtypes)
+        st.write(df_forecast_aligned.head(1))
         df_forecast["pred_dem"] = model.predict(df_forecast_aligned)
 
     st.subheader("Resumen")
